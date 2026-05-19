@@ -13,7 +13,7 @@ export function calcularMediaVendasPorDia(dataISO, valorInteiro) {
     const dataAtual = new Date();
 
     // Verificar se a data é válida
-    if (isNaN(dataInicial.getTime())) {
+    if (Number.isNaN(dataInicial.getTime())) {
         return createEmptyMetrics();
     }
 

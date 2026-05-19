@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 
 const safeFloat = (v) => {
-  const n = parseFloat(String(v).replace(',', '.'));
-  return isNaN(n) ? 0 : n;
+  const n = Number.parseFloat(String(v).replace(',', '.'));
+  return Number.isNaN(n) ? 0 : n;
 };
 
 const isFull = (item) => item.is_fulfillment === true || item.logistic_type === 'fulfillment';
@@ -89,7 +89,7 @@ export default function TermKPIs({ results }) {
         t.validTtsCount++;
       }
 
-      const price = parseFloat(item.price) || 0;
+      const price = Number.parseFloat(item.price) || 0;
       if (price > 0) {
         if (price < t.minPrice) t.minPrice = price;
         if (price > t.maxPrice) t.maxPrice = price;
@@ -97,7 +97,7 @@ export default function TermKPIs({ results }) {
         t.validPriceCount++;
       }
 
-      const sales = parseInt(item.sales_quantity) || 0;
+      const sales = Number.parseInt(item.sales_quantity) || 0;
       if (sales > 200) t.salesOver200++;
       t.totalSales += sales;
 
@@ -166,7 +166,7 @@ export default function TermKPIs({ results }) {
   const allCandidates = useMemo(() => {
     return products.filter(p => {
       const t = terms[p.term];
-      const cost = Number.parseFloat(costs[p.term]) || 0;
+      const cost = Number.Number.parseFloat(costs[p.term]) || 0;
       const margin = cost > 0 ? calcMargin(p.price, cost) : null;
       const passMargin = margin === null || margin >= 30;
       const termNotSaturated = t.fullPct < 60;
@@ -233,8 +233,8 @@ export default function TermKPIs({ results }) {
       <div className={`grid gap-5 mb-8 ${termsToDisplay.length === 1 ? 'grid-cols-1 max-w-2xl' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
         {termsToDisplay.map(key => {
           const t = terms[key];
-          const cost = parseFloat(costs[key]) || 0;
-          const sellVal = parseFloat(sellPrices[key]) || 0;
+          const cost = Number.parseFloat(costs[key]) || 0;
+          const sellVal = Number.parseFloat(sellPrices[key]) || 0;
           const priceToCalc = sellVal > 0 ? sellVal : t.avgPrice;
           const margin = cost > 0 ? calcMargin(priceToCalc, cost) : null;
           const mc = marginClass(margin);
@@ -423,8 +423,8 @@ export default function TermKPIs({ results }) {
               ) : (
                 paginatedCandidates.map(p => {
                   const t = terms[p.term];
-                  const cost = parseFloat(costs[p.term]) || 0;
-                  const sellVal = parseFloat(sellPrices[p.term]) || 0;
+                  const cost = Number.parseFloat(costs[p.term]) || 0;
+                  const sellVal = Number.parseFloat(sellPrices[p.term]) || 0;
                   const priceToCalc = sellVal > 0 ? sellVal : p.price;
                   const margin = cost > 0 ? calcMargin(priceToCalc, cost) : null;
                   const fr = fullRisk(t.fullPct);

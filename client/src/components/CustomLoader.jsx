@@ -13,7 +13,6 @@ const CustomLoader = ({ message, progress = 0, termsCount = 1 }) => {
 
     // Estimate: ~15-30 seconds per term depending on the API speed
     const estimatedTotal = termsCount * 25;
-    const progressPercentage = Math.min(Math.round((progress / termsCount) * 100), 100);
 
     return (
         <div className="flex flex-col items-center justify-center p-10 w-full max-w-md mx-auto">

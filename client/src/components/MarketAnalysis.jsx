@@ -16,8 +16,8 @@ Chart.register(
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const safeFloat = (v) => {
-  const n = parseFloat(String(v).replace(',', '.'));
-  return isNaN(n) ? null : n;
+  const n = Number.parseFloat(String(v).replace(',', '.'));
+  return Number.isNaN(n) ? null : n;
 };
 
 const isFull = (item) =>
@@ -25,7 +25,7 @@ const isFull = (item) =>
 
 const scoreItem = (item) => {
   const tts = safeFloat(item.tts);
-  const sales = parseInt(item.sales_quantity) || 0;
+  const sales = Number.parseInt(item.sales_quantity) || 0;
   if (tts === null) return 0;
   let s = 0;
   if (tts <= 10) s += 50;
@@ -98,8 +98,8 @@ function QuadrantChart({ results }) {
 
   const data = useMemo(() => results.map(item => {
     const tts = safeFloat(item.tts);
-    const sales = parseInt(item.sales_quantity) || 0;
-    const price = parseFloat(item.price) || 10;
+    const sales = Number.parseInt(item.sales_quantity) || 0;
+    const price = Number.parseFloat(item.price) || 10;
     const score = scoreItem(item);
     const color = score >= 60 ? COLORS.hot : score >= 30 ? COLORS.warn : COLORS.cold;
     const r = Math.max(4, Math.min(18, Math.sqrt(price) * 1.2));
@@ -272,7 +272,7 @@ function PriceVsTts({ results }) {
   const ref = useRef(null);
 
   const pts = useMemo(() =>
-    results.map(item => ({ x: parseFloat(item.price) || 0, y: safeFloat(item.tts) }))
+    results.map(item => ({ x: Number.parseFloat(item.price) || 0, y: safeFloat(item.tts) }))
       .filter(p => p.x > 0 && p.y !== null),
     [results]);
 
@@ -314,7 +314,7 @@ function MarketConcentration({ results }) {
   const [showExportOptions, setShowExportOptions] = useState(false);
   const ref = useRef(null);
 
-  const { labels, shares, hhi, fullRanking, grandTotal } = useMemo(() => {
+  const { labels, shares, hhi, fullRanking } = useMemo(() => {
     const totals = {};
     const sellerStates = {};
     const sellerCounts = {};
@@ -322,7 +322,7 @@ function MarketConcentration({ results }) {
 
     results.forEach(item => {
       const seller = item.nickname || 'Desconhecido';
-      const qty = parseInt(item.sales_quantity) || 0;
+      const qty = Number.parseInt(item.sales_quantity) || 0;
       totals[seller] = (totals[seller] || 0) + qty;
       sellerCounts[seller] = (sellerCounts[seller] || 0) + 1;
       grandTotal += qty;
@@ -341,14 +341,14 @@ function MarketConcentration({ results }) {
       sales: v,
       count: sellerCounts[name] || 0,
       state: sellerStates[name] || '--',
-      share: parseFloat(((v / grandTotal) * 100).toFixed(1))
+      share: Number.parseFloat(((v / grandTotal) * 100).toFixed(1))
     }));
 
     const top10Items = sorted.slice(0, 9);
     const othersTotal = sorted.slice(9).reduce((s, [, v]) => s + v, 0);
     if (othersTotal > 0) top10Items.push(['Outros', othersTotal]);
 
-    const sharesPct = top10Items.map(([, v]) => parseFloat(((v / grandTotal) * 100).toFixed(1)));
+    const sharesPct = top10Items.map(([, v]) => Number.parseFloat(((v / grandTotal) * 100).toFixed(1)));
     const hhiValue = sharesPct.reduce((s, p) => s + (p / 100) ** 2, 0) * 10000;
 
     return { 
@@ -576,7 +576,7 @@ function QualityFunnel({ results }) {
         const total = results.length;
         const withFull = results.filter(isFull).length;
         const ttsOk = results.filter(r => { const t = safeFloat(r.tts); return t !== null && t < 72; }).length;
-        const highSales = results.filter(r => (parseInt(r.sales_quantity) || 0) > 500).length;
+        const highSales = results.filter(r => (Number.parseInt(r.sales_quantity) || 0) > 500).length;
         const highScore = results.filter(r => scoreItem(r) >= 60).length;
         return [
           { label: 'Total analisados', count: total, pct: 100, bg: '#e6f1fb', fg: '#185fa5' },
@@ -619,7 +619,7 @@ function QualityFunnel({ results }) {
 // ════════════════════════════════════════════════════════════════════════════
 function PriceDistribution({ results }) {
       const { bands, hotBand } = useMemo(() => {
-        const prices = results.map(r => parseFloat(r.price)).filter(p => !isNaN(p) && p > 0);
+        const prices = results.map(r => Number.parseFloat(r.price)).filter(p => !Number.isNaN(p) && p > 0);
         if (prices.length === 0) return { bands: [], hotBand: null };
 
         const min = Math.floor(Math.min(...prices));

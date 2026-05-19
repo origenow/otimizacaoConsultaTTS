@@ -1,5 +1,5 @@
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { gsap } from 'gsap';
 
 const DEFAULT_PARTICLE_COUNT = 12;
@@ -54,7 +54,6 @@ const ParticleCard = ({
     onClick
 }) => {
     const cardRef = useRef(null);
-    const particlesRef = useRef([]);
     // ... (lines 57-270 omitted for brevity, logic remains same)
     return (
         <div
@@ -193,7 +192,7 @@ const GlobalSpotlight = ({
         return () => {
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseleave', handleMouseLeave);
-            spotlightRef.current?.parentNode?.removeChild(spotlightRef.current);
+            spotlightRef.current?.remove();
         };
     }, [gridRef, disableAnimations, enabled, spotlightRadius, glowColor]);
 
