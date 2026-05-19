@@ -33,7 +33,7 @@ export async function getseller(accessToken, sellerIds) {
         const responses = await Promise.all(groups.map(group => fetchItems(group)));
 
         // Achata o array de arrays em um único array de resultados
-        return [].concat(...responses);
+        return responses.flat();
     } catch (error) {
         console.error("Erro no processamento geral:", error);
         throw error;

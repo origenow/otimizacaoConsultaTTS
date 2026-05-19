@@ -50,6 +50,7 @@ const httpsAgent = new https.Agent({
  * ============================================================================
  */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// Math.random() is intentional: jitter/delay does not require cryptographic randomness // NOSONAR
 const rand = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
 
 /**
@@ -143,9 +144,6 @@ class RateLimiter {
     record429() {
         this.consecutiveSuccess = 0;
         this.isThrottling = true;
-
-        const oldInterval = this.interval;
-        const oldBurst = this.burstCapacity;
 
         // Aumentar intervalo exponencialmente
         this.interval = Math.min(
@@ -273,7 +271,7 @@ class CookieJar {
     }
 
     updateFromResponse(headers) {
-        const raw = headers?.raw ? headers.raw() : {};
+        const raw = headers?.raw?.() ?? {};
         const setCookies = raw["set-cookie"] || [];
         for (const sc of setCookies) {
             const firstPart = sc.split(";")[0];
@@ -366,12 +364,12 @@ async function fetchWithRetry(url, options = {}, retries = CONFIG.MAX_RETRIES, c
 
                 if (retryAfter) {
                     const sec = Number.parseInt(retryAfter, 10);
-                    if (!Number.isNaN(sec)) waitMs = Math.min(sec * 1000, CONFIG.MAX_DELAY_MS);
+                    if (!Number.isNaN(sec)) waitMs = Math.min(sec * 1_000, CONFIG.MAX_DELAY_MS);
                 }
 
                 waitMs += rand(200, 1000);
 
-                try { await res.text(); } catch { }
+                try { await res.text(); } catch (e) { console.debug('[fetchWithRetry] body drain failed:', e.message); }
                 await sleep(waitMs);
                 attempt++;
                 continue;
@@ -385,7 +383,7 @@ async function fetchWithRetry(url, options = {}, retries = CONFIG.MAX_RETRIES, c
                 );
                 waitMs += rand(150, 600);
 
-                try { await res.text(); } catch { }
+                try { await res.text(); } catch (e) { console.debug('[fetchWithRetry] body drain failed:', e.message); }
                 await sleep(waitMs);
                 attempt++;
                 continue;
@@ -393,7 +391,7 @@ async function fetchWithRetry(url, options = {}, retries = CONFIG.MAX_RETRIES, c
 
             // 403/401: falha rápida (não insistir)
             if (res.status === 403 || res.status === 401) {
-                try { await res.text(); } catch { }
+                try { await res.text(); } catch (e) { console.debug('[fetchWithRetry] body drain failed:', e.message); }
                 return res; // retorna sem retry
             }
 
@@ -454,7 +452,7 @@ const SESSION_REGEX_REL =
 
 function extractSessionFromLocation(location) {
     if (!location) return null;
-    const m = location.match(/\/publicar\/bomni\/([a-zA-Z0-9_-]+)\/item_data_form/i);
+    const m = /\/publicar\/bomni\/([a-zA-Z0-9_-]+)\/item_data_form/i.exec(location);
     return m?.[1] || null;
 }
 
@@ -462,18 +460,18 @@ function bruteForceSessionId(html) {
     if (!html) return null;
 
     // A: absoluto
-    let m = html.match(SESSION_REGEX_ABS);
+    let m = SESSION_REGEX_ABS.exec(html);
     if (m?.[1]) return { sessionId: m[1], strategy: "A(abs-url)" };
 
     // B: relativo
-    m = html.match(SESSION_REGEX_REL);
+    m = SESSION_REGEX_REL.exec(html);
     if (m?.[1]) return { sessionId: m[1], strategy: "B(rel-url)" };
 
     // Meta refresh
-    const metaRefresh = html.match(/http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["']/i);
+    const metaRefresh = /http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["']/i.exec(html);
     if (metaRefresh?.[1]) {
         const url = metaRefresh[1];
-        const mm = url.match(SESSION_REGEX_REL) || url.match(SESSION_REGEX_ABS);
+        const mm = SESSION_REGEX_REL.exec(url) || SESSION_REGEX_ABS.exec(url);
         if (mm?.[1]) return { sessionId: mm[1], strategy: "META(refresh)" };
     }
 
@@ -485,10 +483,12 @@ function bruteForceSessionId(html) {
             const braceStart = html.indexOf("{", start);
             if (braceStart !== -1) {
                 const jsonStr = sliceBalancedBraces(html, braceStart);
-                let mm = jsonStr.match(SESSION_REGEX_REL) || jsonStr.match(SESSION_REGEX_ABS);
+                let mm = SESSION_REGEX_REL.exec(jsonStr) || SESSION_REGEX_ABS.exec(jsonStr);
                 if (mm?.[1]) return { sessionId: mm[1], strategy: "C(preloaded-regex)" };
             }
-        } catch { }
+        } catch (e) {
+            console.debug('[bruteForce] PRELOADED_STATE parse failed:', e.message);
+        }
     }
 
     // D: Cheerio
@@ -511,14 +511,16 @@ function bruteForceSessionId(html) {
         $("script").each((_, el) => {
             const txt = $(el).html() || "";
             if (!txt.includes("item_data_form")) return;
-            const mm = txt.match(SESSION_REGEX_REL) || txt.match(SESSION_REGEX_ABS);
+            const mm = SESSION_REGEX_REL.exec(txt) || SESSION_REGEX_ABS.exec(txt);
             if (mm?.[1]) {
                 scriptFound = mm[1];
                 return false;
             }
         });
         if (scriptFound) return { sessionId: scriptFound, strategy: "D(script)" };
-    } catch { }
+    } catch (e) {
+        console.debug('[bruteForce] DOM parse failed:', e.message);
+    }
 
     return null;
 }
@@ -949,16 +951,16 @@ function parseAndSumSales(rowData) {
         const str = JSON.stringify(row);
 
         // Captura: "+100 vendas", "500 vendidos", "1.000 vendas"
-        const match = str.match(/"(\+?)([\d\.]+)\s+(vendas?|vendidos?)"/i);
+        const match = /"(\+?)([\d.]+)\s+(vendas?|vendidos?)"/i.exec(str);
         if (match) {
             rowsParsed++;
-            const cleanStr = match[0].replace(/"/g, "");
+            const cleanStr = match[0].replaceAll('"', '');
             if (rawExamples.length < 5) rawExamples.push(cleanStr);
 
             if (match[1] === "+") hasLowerBound = true;
 
-            const num = parseInt(match[2].replace(/\./g, ""), 10);
-            if (!isNaN(num)) totalLowerBound += num;
+            const num = Number.parseInt(match[2].replaceAll('.', ''), 10);
+            if (!Number.isNaN(num)) totalLowerBound += num;
         }
     }
 

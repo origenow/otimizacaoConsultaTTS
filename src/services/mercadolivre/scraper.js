@@ -187,16 +187,16 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
     // Ex: "+10 mil vendidos", "+5 mil vendidos", "1000 vendidos"
     let salesQuantity = 0;
     if (subtitle) {
-        const lowerSub = subtitle.toLowerCase().replace('.', '').replace(',', '.'); // Normalize dot/comma
+        const lowerSub = subtitle.toLowerCase().replaceAll('.', '').replace(',', '.'); // Normalize dot/comma
 
         // 1. Check for "mil" or "milhares" patterns (e.g. "+5 mil", "10 mil")
-        const milMatch = lowerSub.match(/([\d\.]+)\s*(mil|milhares)/);
+        const milMatch = /([\d.]+)\s*(mil|milhares)/.exec(lowerSub);
         if (milMatch) {
-            const numberPart = parseFloat(milMatch[1]);
+            const numberPart = Number.parseFloat(milMatch[1]);
             salesQuantity = numberPart * 1000;
         } else {
             // 2. Normal number extraction if no "mil"
-            salesQuantity = parseInt(lowerSub.match(/\d+/g)?.join('') || 0, 10);
+            salesQuantity = Number.parseInt(lowerSub.match(/\d+/g)?.join('') || 0, 10);
         }
     }
 
@@ -261,9 +261,9 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
 
     // Tentar inferir Frete Grátis se eventData falhar
     let free_shipping = eventData.free_shipping;
-    if (free_shipping === undefined || free_shipping === null) {
+    if (free_shipping == null) {
         // Tenta achar texto de frete grátis nos componentes visuais
-        const jsonString = JSON.stringify(data.components || {});
+        const jsonString = JSON.stringify(data.components ?? {});
         if (jsonString.toLowerCase().includes("frete grátis")) {
             free_shipping = true;
         } else {
@@ -303,7 +303,7 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
         is_fulfillment = highlightsStr.includes('fulfillment') || /\bfull\b/.test(highlightsStr);
     }
 
-    const scrapedSales = parseInt(salesQuantity, 10) || 0;
+    const scrapedSales = Number.parseInt(salesQuantity, 10) || 0;
 
     const result = {
         id: itemID,
@@ -454,7 +454,7 @@ export async function searchProducts(query, proxyIterator, accessToken) {
     response = itemsProcessed.filter(item =>
         item !== null &&
         item.title &&
-        (typeof item.price === 'number' && !isNaN(item.price)) &&
+        (typeof item.price === 'number' && !Number.isNaN(item.price)) &&
         item.id.toUpperCase().startsWith('MLB')
     );
 
