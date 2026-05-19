@@ -1,0 +1,13 @@
+/* Clean App.css to let Tailwind handle the layout */
+#root {
+  width: 100%;
+}
+
+.animate-bounce-slow {
+  animation: bounce 3s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(-5%) }
+  50% { transform: translateY(0) }
+}

@@ -1,0 +1,345 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.wrap { padding: 4px 0 24px; font-family: var(--font-sans, sans-serif); }
+.section-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+.section-sub   { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 14px; line-height: 1.5; }
+.card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 16px 18px; margin-bottom: 14px; }
+.tag { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 10px; margin-bottom: 10px; }
+.tag-new   { background: #eaf3de; color: #3b6d11; }
+.tag-exists{ background: #e6f1fb; color: #185fa5; }
+.legend    { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 11px; color: var(--color-text-secondary); }
+.legend span { display: flex; align-items: center; gap: 5px; }
+.ld { width: 10px; height: 10px; border-radius: 2px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .two-col, .three-col { grid-template-columns: 1fr; } }
+
+/* Quadrant matrix */
+.matrix-wrap { position: relative; width: 100%; height: 280px; }
+.q-label { position: absolute; font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 4px; pointer-events: none; }
+.q-tr { top: 10px; right: 10px; background: #eaf3de; color: #3b6d11; }
+.q-tl { top: 10px; left: 10px; background: #faeeda; color: #854f0b; }
+.q-br { bottom: 10px; right: 10px; background: #faeeda; color: #854f0b; }
+.q-bl { bottom: 10px; left: 10px; background: #fcebeb; color: #a32d2d; }
+
+/* Risk meter */
+.risk-bar { height: 20px; border-radius: 6px; background: linear-gradient(to right, #639922, #BA7517, #E24B4A); margin: 10px 0; position: relative; }
+.risk-needle { position: absolute; top: -4px; width: 3px; height: 28px; background: var(--color-text-primary); border-radius: 2px; transform: translateX(-50%); }
+.risk-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--color-text-secondary); }
+
+/* Price distribution bars */
+.dist-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.dist-label { font-size: 11px; color: var(--color-text-secondary); width: 80px; text-align: right; flex-shrink: 0; }
+.dist-bg { flex: 1; height: 18px; background: var(--color-background-secondary); border-radius: 3px; overflow: hidden; position: relative; }
+.dist-fill { height: 100%; border-radius: 3px; transition: width 0.4s; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; }
+.dist-val { font-size: 10px; font-weight: 500; }
+
+/* Funnel */
+.funnel-step { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.funnel-bar-wrap { flex: 1; }
+.funnel-bar { height: 32px; border-radius: 4px; display: flex; align-items: center; padding-left: 12px; font-size: 12px; font-weight: 500; transition: width 0.4s; }
+.funnel-count { font-size: 11px; color: var(--color-text-secondary); width: 40px; text-align: right; flex-shrink: 0; }
+
+/* Seller health gauge rings */
+.gauge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.gauge-item { text-align: center; }
+.gauge-item svg { width: 80px; height: 80px; }
+.gauge-label { font-size: 11px; color: var(--color-text-secondary); margin-top: 4px; }
+.gauge-val { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+</style>
+
+<div class="wrap">
+
+<!-- 1. QUADRANT: TTS vs VENDAS -->
+<div class="card">
+  <span class="tag tag-new">Novo sugerido</span>
+  <div class="section-title">Matriz de decisão — TTS × Volume de vendas</div>
+  <div class="section-sub">Cada ponto é um produto. Canto superior esquerdo = oportunidade de ouro. Canto inferior direito = risco alto.</div>
+  <div class="matrix-wrap">
+    <canvas id="quadrantChart"></canvas>
+    <span class="q-label q-tl">Nicho rápido</span>
+    <span class="q-label q-tr">Oportunidade</span>
+    <span class="q-label q-bl">Evitar</span>
+    <span class="q-label q-br">Volume, mas lento</span>
+  </div>
+  <div class="legend">
+    <span><span class="ld" style="background:#639922"></span> Score alto</span>
+    <span><span class="ld" style="background:#BA7517"></span> Cautela</span>
+    <span><span class="ld" style="background:#E24B4A"></span> Evitar</span>
+    <span style="color:var(--color-text-tertiary)">Tamanho da bolha = preço</span>
+  </div>
+</div>
+
+<div class="two-col">
+
+  <!-- 2. DISTRIBUIÇÃO DE TTS (histograma) -->
+  <div class="card">
+    <span class="tag tag-new">Novo sugerido</span>
+    <div class="section-title">Distribuição de TTS</div>
+    <div class="section-sub">Quantos produtos vendem em cada faixa de tempo. Mostra se o mercado é rápido ou travado.</div>
+    <div style="position:relative;height:180px;"><canvas id="ttsHist"></canvas></div>
+  </div>
+
+  <!-- 3. DISPERSÃO PREÇO vs TTS -->
+  <div class="card">
+    <span class="tag tag-new">Novo sugerido</span>
+    <div class="section-title">Preço × TTS</div>
+    <div class="section-sub">Produtos caros vendem mais devagar? Ou há outliers valiosos? Ajuda a precificar melhor.</div>
+    <div style="position:relative;height:180px;"><canvas id="priceVsTts"></canvas></div>
+  </div>
+
+</div>
+
+<!-- 4. CONCENTRAÇÃO DE MERCADO (HHI visual) -->
+<div class="card">
+  <span class="tag tag-new">Novo sugerido</span>
+  <div class="section-title">Concentração de mercado por vendedor (top 10)</div>
+  <div class="section-sub">Se um vendedor domina >40% das vendas, entrar nesse mercado é arriscado. Barras maiores = mercado mais concentrado.</div>
+  <div style="position:relative;height:160px;"><canvas id="concChart"></canvas></div>
+  <div style="margin-top:10px;padding:10px;background:var(--color-background-secondary);border-radius:6px;display:flex;align-items:center;gap:10px;">
+    <div style="flex:1;">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;">Índice de concentração (HHI)</div>
+      <div class="risk-bar"><div class="risk-needle" style="left:62%"></div></div>
+      <div class="risk-labels"><span>Disperso</span><span>Moderado</span><span>Concentrado</span></div>
+    </div>
+    <div style="text-align:center;flex-shrink:0;">
+      <div style="font-size:22px;font-weight:500;color:#BA7517">62%</div>
+      <div style="font-size:10px;color:var(--color-text-secondary)">concentração</div>
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+
+  <!-- 5. FUNIL DE QUALIDADE DOS ANÚNCIOS -->
+  <div class="card">
+    <span class="tag tag-new">Novo sugerido</span>
+    <div class="section-title">Funil de qualidade dos anúncios</div>
+    <div class="section-sub">Dos 111 anúncios, quantos realmente valem atenção.</div>
+    <div style="margin-top:8px;">
+      <div class="funnel-step">
+        <div class="funnel-bar-wrap">
+          <div class="funnel-bar" style="width:100%;background:#e6f1fb;color:#185fa5">Total analisados</div>
+        </div>
+        <div class="funnel-count">111</div>
+      </div>
+      <div class="funnel-step">
+        <div class="funnel-bar-wrap">
+          <div class="funnel-bar" style="width:72%;background:#b5d4f4;color:#185fa5">Com Full logística</div>
+        </div>
+        <div class="funnel-count">80</div>
+      </div>
+      <div class="funnel-step">
+        <div class="funnel-bar-wrap">
+          <div class="funnel-bar" style="width:54%;background:#eaf3de;color:#3b6d11">TTS &lt; 72h</div>
+        </div>
+        <div class="funnel-count">60</div>
+      </div>
+      <div class="funnel-step">
+        <div class="funnel-bar-wrap">
+          <div class="funnel-bar" style="width:30%;background:#c0dd97;color:#3b6d11">Vendas &gt; 500</div>
+        </div>
+        <div class="funnel-count">33</div>
+      </div>
+      <div class="funnel-step">
+        <div class="funnel-bar-wrap">
+          <div class="funnel-bar" style="width:14%;background:#639922;color:#fff">Score alto</div>
+        </div>
+        <div class="funnel-count" style="font-weight:500;color:#3b6d11">15</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. DISTRIBUIÇÃO DE PREÇO -->
+  <div class="card">
+    <span class="tag tag-new">Novo sugerido</span>
+    <div class="section-title">Faixas de preço dos concorrentes</div>
+    <div class="section-sub">Onde está o grosso dos anúncios. Útil para saber em qual faixa entrar.</div>
+    <div style="margin-top:8px;">
+      <div class="dist-row">
+        <div class="dist-label">R$ 0–25</div>
+        <div class="dist-bg"><div class="dist-fill" style="width:18%;background:#b5d4f4;"><span class="dist-val" style="color:#185fa5">18%</span></div></div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">R$ 25–50</div>
+        <div class="dist-bg"><div class="dist-fill" style="width:42%;background:#378add;"><span class="dist-val" style="color:#fff">42%</span></div></div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">R$ 50–100</div>
+        <div class="dist-bg"><div class="dist-fill" style="width:28%;background:#185fa5;"><span class="dist-val" style="color:#fff">28%</span></div></div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">R$ 100–200</div>
+        <div class="dist-bg"><div class="dist-fill" style="width:8%;background:#0c447c;"><span class="dist-val" style="color:#fff">8%</span></div></div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">R$ 200+</div>
+        <div class="dist-bg"><div class="dist-fill" style="width:4%;background:#042c53;"><span class="dist-val" style="color:#fff">4%</span></div></div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--color-text-secondary);">
+      Zona mais competitiva: <strong style="color:var(--color-text-primary)">R$ 25–50</strong> (42% dos anúncios)
+    </div>
+  </div>
+
+</div>
+
+<!-- 7. SAÚDE DOS VENDEDORES (gauge visual) -->
+<div class="card">
+  <span class="tag tag-new">Novo sugerido</span>
+  <div class="section-title">Perfil de saúde dos vendedores concorrentes</div>
+  <div class="section-sub">Mercado com muitos Platinum/MercadoLíder = difícil de entrar. Abaixo, a distribuição dos 98 vendedores ativos.</div>
+  <div style="position:relative;height:160px;"><canvas id="sellerHealth"></canvas></div>
+  <div style="margin-top:10px;padding:10px;background:var(--color-background-secondary);border-radius:6px;font-size:11px;color:var(--color-text-secondary);">
+    <strong style="color:var(--color-text-primary)">Leitura rápida:</strong> 62% dos vendedores são Platinum ou MercadoLíder — mercado com <span style="color:#BA7517;font-weight:500">barreira de entrada moderada-alta.</span> Há espaço nos nichos de produtos onde dominam vendedores médios.
+  </div>
+</div>
+
+<!-- 8. TENDÊNCIA TTS ao longo do ranking -->
+<div class="card">
+  <span class="tag tag-new">Novo sugerido</span>
+  <div class="section-title">Curva de TTS pelo ranking de posição</div>
+  <div class="section-sub">Como o TTS cresce conforme você desce no ranking. O "joelho da curva" indica onde os produtos começam a ficar lentos demais.</div>
+  <div style="position:relative;height:180px;"><canvas id="ttsRank"></canvas></div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const isDark = matchMedia("(prefers-color-scheme: dark)").matches;
+const tc = isDark ? "#b4b2a9" : "#73726c";
+const gc = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
+
+// 1. QUADRANT
+const qData = [
+  {x:0.09,y:11500,r:10,c:"rgba(99,153,34,0.8)",label:"Yoyo Coca-cola"},
+  {x:0.28,y:58360,r:14,c:"rgba(99,153,34,0.8)",label:"Cola Ruby 3ml"},
+  {x:0.49,y:38780,r:13,c:"rgba(99,153,34,0.8)",label:"Cola Diamond 3g"},
+  {x:2.13,y:2800,r:8,c:"rgba(186,117,23,0.8)",label:"Régua Souza"},
+  {x:5.6,y:1980,r:10,c:"rgba(186,117,23,0.8)",label:"Kit Desenho"},
+  {x:10.16,y:340,r:11,c:"rgba(186,117,23,0.8)",label:"Pasta Aba Dorso"},
+  {x:11.03,y:320,r:9,c:"rgba(226,75,74,0.8)",label:"Pasta Aba Mini"},
+  {x:38,y:180,r:7,c:"rgba(226,75,74,0.8)",label:"Produto X"},
+  {x:72,y:90,r:6,c:"rgba(226,75,74,0.8)",label:"Produto Y"},
+];
+new Chart(document.getElementById("quadrantChart"),{
+  type:"bubble",
+  data:{datasets:[{data:qData.map(d=>({x:d.x,y:d.y,r:d.r})),backgroundColor:qData.map(d=>d.c),borderWidth:0}]},
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const d=qData[ctx.dataIndex];return`${d.label}: TTS ${d.x}h | ${d.y.toLocaleString()} vendas`}}}},
+    scales:{
+      x:{type:"logarithmic",min:0.05,max:100,title:{display:true,text:"TTS (h) — escala log",color:tc,font:{size:10}},grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+"h"}},
+      y:{min:0,max:65000,title:{display:true,text:"Vendas totais",color:tc,font:{size:10}},grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+"k":v}}
+    }
+  }
+});
+
+// 2. HISTOGRAMA TTS
+new Chart(document.getElementById("ttsHist"),{
+  type:"bar",
+  data:{
+    labels:["<1h","1–5h","5–24h","1–3d","3–7d","7–30d",">30d"],
+    datasets:[{
+      data:[3,8,14,22,28,20,16],
+      backgroundColor:["rgba(99,153,34,0.85)","rgba(99,153,34,0.7)","rgba(99,153,34,0.55)","rgba(186,117,23,0.7)","rgba(186,117,23,0.55)","rgba(226,75,74,0.6)","rgba(226,75,74,0.85)"],
+      borderRadius:4,borderSkipped:false
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} produtos`}}},
+    scales:{
+      x:{grid:{display:false},ticks:{color:tc,font:{size:10}}},
+      y:{grid:{color:gc},ticks:{color:tc,font:{size:10}},title:{display:true,text:"Qtd produtos",color:tc,font:{size:10}}}
+    }
+  }
+});
+
+// 3. PREÇO vs TTS scatter
+const pvt=[
+  {x:32.9,y:0.09},{x:69.9,y:0.28},{x:65.9,y:0.49},{x:29.9,y:2.13},
+  {x:49.99,y:5.6},{x:54.6,y:10.16},{x:22.2,y:11.03},{x:38,y:22},
+  {x:15,y:44},{x:120,y:8},{x:89,y:3.5},{x:45,y:18},
+];
+new Chart(document.getElementById("priceVsTts"),{
+  type:"scatter",
+  data:{datasets:[{data:pvt,backgroundColor:"rgba(55,138,221,0.65)",pointRadius:5,pointHoverRadius:7}]},
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`R$ ${ctx.raw.x} — ${ctx.raw.y}h`}}},
+    scales:{
+      x:{title:{display:true,text:"Preço (R$)",color:tc,font:{size:10}},grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+      y:{title:{display:true,text:"TTS (h)",color:tc,font:{size:10}},grid:{color:gc},ticks:{color:tc,font:{size:10}}}
+    }
+  }
+});
+
+// 4. CONCENTRAÇÃO
+new Chart(document.getElementById("concChart"),{
+  type:"bar",
+  data:{
+    labels:["Vendedor A","Vendedor B","Vendedor C","Vendedor D","Vendedor E","Vendedor F","Vendedor G","Vendedor H","Vendedor I","Outros"],
+    datasets:[{
+      data:[28,18,14,9,7,5,4,3,3,9],
+      backgroundColor:["rgba(226,75,74,0.85)","rgba(226,75,74,0.75)","rgba(186,117,23,0.8)","rgba(186,117,23,0.7)","rgba(186,117,23,0.6)","rgba(99,153,34,0.7)","rgba(99,153,34,0.6)","rgba(99,153,34,0.55)","rgba(99,153,34,0.5)","rgba(136,135,128,0.5)"],
+      borderRadius:4,borderSkipped:false
+    }]
+  },
+  options:{
+    indexAxis:"y",responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw}% das vendas`}}},
+    scales:{
+      x:{max:35,grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+"%"}},
+      y:{grid:{display:false},ticks:{color:tc,font:{size:10}}}
+    }
+  }
+});
+
+// 7. SELLER HEALTH donut
+new Chart(document.getElementById("sellerHealth"),{
+  type:"doughnut",
+  data:{
+    labels:["MercadoLíder Platinum","MercadoLíder Gold","MercadoLíder","Bom","Médio","Novo"],
+    datasets:[{data:[32,18,12,16,14,8],backgroundColor:["#185fa5","#378add","#85b7eb","#639922","#BA7517","#888780"],borderWidth:2,borderColor:isDark?"#1a1a18":"#fff"}]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,cutout:"62%",
+    plugins:{
+      legend:{position:"right",labels:{color:tc,font:{size:10},boxWidth:10,padding:8}},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.raw} vendedores (${ctx.raw}%)`}}
+    }
+  }
+});
+
+// 8. CURVA TTS por ranking
+const ranks=Array.from({length:20},(_,i)=>i+1);
+const ttsCurve=[0.09,0.28,0.49,0.9,1.5,2.1,3.2,5.6,7.8,10.2,11.0,15,18,24,28,35,44,55,68,90];
+new Chart(document.getElementById("ttsRank"),{
+  type:"line",
+  data:{
+    labels:ranks,
+    datasets:[{
+      label:"TTS",data:ttsCurve,
+      borderColor:"#378add",borderWidth:2,
+      backgroundColor:"rgba(55,138,221,0.08)",fill:true,
+      pointBackgroundColor:ttsCurve.map(v=>v<10?"#639922":v<30?"#BA7517":"#E24B4A"),
+      pointRadius:4,tension:0.3
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.raw}h por venda`}},
+      annotation:{annotations:{}}
+    },
+    scales:{
+      x:{title:{display:true,text:"Posição no ranking",color:tc,font:{size:10}},grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+      y:{title:{display:true,text:"TTS (horas)",color:tc,font:{size:10}},grid:{color:gc},ticks:{color:tc,font:{size:10}}}
+    }
+  }
+});
+</script>

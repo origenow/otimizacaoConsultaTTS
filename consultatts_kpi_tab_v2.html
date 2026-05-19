@@ -1,0 +1,446 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --purple:#7c3aed;--purple-light:#ede9fe;--purple-mid:#a78bfa;
+  --green:#059669;--green-light:#d1fae5;
+  --amber:#d97706;--amber-light:#fef3c7;
+  --red:#dc2626;--red-light:#fee2e2;
+  --gray-50:#f9fafb;--gray-100:#f3f4f6;--gray-200:#e5e7eb;
+  --gray-300:#d1d5db;--gray-400:#9ca3af;--gray-500:#6b7280;
+  --gray-700:#374151;--gray-900:#111827;
+  --radius:10px;--radius-sm:6px;
+}
+body{font-family:'DM Sans',sans-serif;background:#f8f7ff;color:var(--gray-900);font-size:14px;line-height:1.5;}
+
+.topbar{background:#fff;border-bottom:1px solid var(--gray-200);padding:0 24px;display:flex;align-items:center;}
+.logo{font-weight:600;color:var(--purple);font-size:15px;margin-right:32px;letter-spacing:-0.3px;}
+.tab-nav{display:flex;}
+.tab-btn{padding:14px 18px;font-size:13px;font-weight:400;color:var(--gray-500);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+.tab-btn:hover{color:var(--gray-700);}
+.tab-btn.active{color:var(--purple);border-bottom-color:var(--purple);font-weight:500;}
+
+.term-bar{background:#fff;border-bottom:1px solid var(--gray-200);padding:10px 24px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.term-pill{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .15s;}
+.term-pill.active{background:var(--purple);color:#fff;border-color:var(--purple);}
+.term-pill:not(.active){background:var(--gray-100);color:var(--gray-500);border-color:var(--gray-200);}
+.term-pill:not(.active):hover{border-color:var(--purple-mid);color:var(--purple);}
+.term-label{font-size:11px;color:var(--gray-400);margin-right:4px;}
+
+.content{padding:20px 24px 32px;max-width:1200px;}
+.section-head{margin-bottom:14px;}
+.section-head h2{font-size:15px;font-weight:600;color:var(--gray-900);}
+.section-head p{font-size:12px;color:var(--gray-400);margin-top:2px;}
+
+.compare-grid{display:grid;gap:12px;margin-bottom:20px;}
+.compare-grid.single{grid-template-columns:1fr;}
+.compare-grid.multi{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
+
+.term-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);overflow:hidden;}
+.term-card-header{padding:12px 16px;border-bottom:1px solid var(--gray-100);display:flex;align-items:flex-start;gap:8px;flex-direction:column;}
+.term-card-name{font-size:11px;font-weight:600;color:var(--purple);text-transform:uppercase;letter-spacing:.04em;}
+.badges-row{display:flex;gap:6px;flex-wrap:wrap;}
+
+/* RISCO — cores invertidas vs antes */
+.risk-badge{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;white-space:nowrap;}
+.risk-open   {background:#d1fae5;color:#065f46;}  /* poucos no full = aberto */
+.risk-medium {background:var(--amber-light);color:var(--amber);}
+.risk-closed {background:var(--red-light);color:var(--red);}  /* muitos no full = fechado */
+.winner-badge{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:var(--purple-light);color:var(--purple);white-space:nowrap;}
+
+.kpi-section{padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.kpi-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.kpi-label{font-size:11px;color:var(--gray-400);flex:1;}
+.kpi-value{font-size:13px;font-weight:600;color:var(--gray-900);text-align:right;}
+.kpi-value.green{color:var(--green);}
+.kpi-value.amber{color:var(--amber);}
+.kpi-value.red{color:var(--red);}
+.kpi-value.purple{color:var(--purple);}
+.kpi-bar-wrap{width:60px;height:5px;background:var(--gray-100);border-radius:3px;overflow:hidden;flex-shrink:0;}
+.kpi-bar-fill{height:100%;border-radius:3px;}
+.kpi-divider{height:1px;background:var(--gray-100);margin:2px 0;}
+
+/* Full insight box — o coração da mudança */
+.full-insight{margin:0 16px 12px;padding:10px 12px;border-radius:var(--radius-sm);border-left:3px solid;font-size:11px;line-height:1.5;}
+.full-insight.open   {background:#f0fdf4;border-color:#10b981;color:#065f46;}
+.full-insight.caution{background:#fffbeb;border-color:#f59e0b;color:#92400e;}
+.full-insight.closed {background:#fef2f2;border-color:#ef4444;color:#991b1b;}
+.full-insight strong {font-weight:600;}
+
+.calc-section{padding:14px 16px;border-top:1px solid var(--gray-100);background:var(--gray-50);}
+.calc-title{font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+.calc-inputs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.calc-field{flex:1;min-width:100px;}
+.calc-field label{font-size:10px;color:var(--gray-400);display:block;margin-bottom:4px;font-weight:500;}
+.calc-field input{width:100%;padding:7px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:12px;font-family:'DM Mono',monospace;color:var(--gray-900);background:#fff;outline:none;transition:border .15s;}
+.calc-field input:focus{border-color:var(--purple);}
+.calc-field input::placeholder{color:var(--gray-300);}
+.margin-result{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid;transition:all .2s;}
+.margin-result.great{background:var(--green-light);border-color:#6ee7b7;}
+.margin-result.ok{background:var(--amber-light);border-color:#fcd34d;}
+.margin-result.bad{background:var(--red-light);border-color:#fca5a5;}
+.margin-result.empty{background:var(--gray-100);border-color:var(--gray-200);}
+.margin-value{font-size:18px;font-weight:600;font-family:'DM Mono',monospace;}
+.margin-sub{font-size:10px;margin-top:1px;}
+
+.opps-section{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
+.opps-header{padding:12px 16px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:8px;}
+.opps-header h3{font-size:13px;font-weight:600;}
+.opp-count{font-size:11px;background:var(--purple-light);color:var(--purple);padding:2px 8px;border-radius:10px;font-weight:600;}
+.opps-table{width:100%;border-collapse:collapse;font-size:12px;}
+.opps-table th{padding:8px 14px;text-align:left;font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--gray-100);background:var(--gray-50);}
+.opps-table td{padding:9px 14px;border-bottom:1px solid var(--gray-100);color:var(--gray-700);vertical-align:middle;}
+.opps-table tr:last-child td{border-bottom:none;}
+.opps-table tr:hover td{background:#faf9ff;}
+.tts-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;}
+.tts-fast{background:var(--green-light);color:var(--green);}
+.tts-medium{background:var(--amber-light);color:var(--amber);}
+.margin-chip{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:var(--purple-light);color:var(--purple);font-family:'DM Mono',monospace;}
+.full-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;}
+.full-yes{background:var(--green-light);color:var(--green);}
+.full-no{background:var(--gray-100);color:var(--gray-400);}
+
+/* alerta de Full na tabela */
+.full-warn{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#fef2f2;color:#dc2626;}
+.td-note{font-size:10px;color:var(--gray-400);margin-top:2px;}
+
+/* legenda full explicada */
+.full-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);}
+.full-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gray-500);}
+.fl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+</style>
+
+<div class="topbar">
+  <div class="logo">origenow</div>
+  <div class="tab-nav">
+    <button class="tab-btn">Visão Geral</button>
+    <button class="tab-btn">Destaques</button>
+    <button class="tab-btn">Dados Detalhados</button>
+    <button class="tab-btn">Análise de Mercado</button>
+    <button class="tab-btn active">KPIs por Termo</button>
+  </div>
+</div>
+
+<div class="term-bar">
+  <span class="term-label">Termos:</span>
+  <button class="term-pill active" onclick="setTerm('all',this)">Todos (111)</button>
+  <button class="term-pill" onclick="setTerm('pasta',this)">Pasta Aba Plascony (19)</button>
+  <button class="term-pill" onclick="setTerm('cola',this)">Cola Colorida Master (44)</button>
+  <button class="term-pill" onclick="setTerm('regua',this)">Régua 100cm Souza (48)</button>
+</div>
+
+<div class="content">
+
+  <div class="section-head">
+    <h2 id="section-title">Comparativo de KPIs — Todos os termos</h2>
+    <p>Insira seu preço de custo para calcular a margem potencial. Full logística em excesso = mercado mais competitivo e difícil de entrar.</p>
+  </div>
+
+  <!-- LEGENDA FULL -->
+  <div class="full-legend">
+    <div class="full-legend-item"><div class="fl-dot" style="background:#10b981"></div> <strong style="color:#065f46">Mercado aberto</strong> — poucos no Full (&lt;30%): Drop ainda competitivo, barreira baixa</div>
+    <div class="full-legend-item"><div class="fl-dot" style="background:#f59e0b"></div> <strong style="color:#92400e">Atenção</strong> — Full moderado (30–60%): avalie TTS e preço antes de entrar</div>
+    <div class="full-legend-item"><div class="fl-dot" style="background:#ef4444"></div> <strong style="color:#991b1b">Mercado fechado</strong> — maioria no Full (&gt;60%): concorrentes consolidados, entrada arriscada</div>
+  </div>
+
+  <div class="compare-grid multi" id="termCards"></div>
+
+  <div class="section-head" style="margin-top:4px;">
+    <h2>Oportunidades reais <span id="opp-filter-label" style="font-weight:400;color:var(--gray-400);font-size:13px;">— TTS &lt; 2h · Vendas &gt; 200 · Margem &gt; 30% · Full do termo &lt; 60%</span></h2>
+    <p>Produtos que passam em todos os filtros — incluindo o nível de competitividade Full do termo</p>
+  </div>
+
+  <div class="opps-section">
+    <div class="opps-header">
+      <h3>Melhores oportunidades</h3>
+      <span class="opp-count" id="opp-count">—</span>
+    </div>
+    <table class="opps-table">
+      <thead>
+        <tr>
+          <th style="width:32%">Produto</th>
+          <th>Termo</th>
+          <th>TTS</th>
+          <th>Vendas</th>
+          <th>Preço ML</th>
+          <th>Margem est.</th>
+          <th>Logística</th>
+        </tr>
+      </thead>
+      <tbody id="oppBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const TERMS = {
+  pasta: {
+    name:"Pasta Aba Elástica Plascony", short:"Pasta Aba Plascony",
+    total:19, full:6, fullPct:32,
+    ttsLow:4, avgTts:10.6,
+    minPrice:22.20, maxPrice:54.60, avgPrice:38.40,
+    salesOver200:2, totalSales:660,
+  },
+  cola: {
+    name:"Cola Colorida 6 Cores Master", short:"Cola Colorida Master",
+    total:44, full:38, fullPct:86,
+    ttsLow:28, avgTts:0.42,
+    minPrice:29.90, maxPrice:89.90, avgPrice:62.40,
+    salesOver200:41, totalSales:209190,
+  },
+  regua: {
+    name:"Régua 100cm Larga MDF Souza", short:"Régua MDF Souza",
+    total:48, full:41, fullPct:85,
+    ttsLow:12, avgTts:3.8,
+    minPrice:24.90, maxPrice:69.90, avgPrice:41.20,
+    salesOver200:22, totalSales:32400,
+  },
+};
+
+const PRODUCTS = [
+  {name:"Cola Ruby Master Elite Cílios 3ml Preto",    term:"cola",  tts:0.28, sales:58360, price:69.90, full:true},
+  {name:"Cola Diamond Cílios 3g Transparente Anvisa", term:"cola",  tts:0.49, sales:38780, price:65.90, full:true},
+  {name:"Cola Master 6 Cores Extra Forte 30ml",       term:"cola",  tts:1.10, sales:4200,  price:38.90, full:true},
+  {name:"Cola Master Profissional Cílios Black 5ml",  term:"cola",  tts:0.85, sales:12400, price:55.90, full:true},
+  {name:"Régua Souza c/ Pegador MDF Natural 100cm",   term:"regua", tts:2.13, sales:2800,  price:29.90, full:true},
+  {name:"Kit Desenho Geométrico Gabarito MDF 5pç",    term:"regua", tts:5.60, sales:1980,  price:49.99, full:true},
+  {name:"Régua MDF Natural c/ Recuo Souza 60cm",      term:"regua", tts:3.20, sales:8900,  price:34.50, full:true},
+  {name:"Régua Larga c/ Pegador 80cm MDF Souza",      term:"regua", tts:4.10, sales:3200,  price:39.90, full:false},
+  {name:"Pasta Aba Elástico Dorso 5cm C/10 A50b",     term:"pasta", tts:10.16,sales:340,   price:54.60, full:false},
+  {name:"Pasta Aba Mini 1/2ofício Kit C/10 A01b",     term:"pasta", tts:11.03,sales:320,   price:22.20, full:false},
+];
+
+let costs = {pasta:'', cola:'', regua:''};
+let currentTerm = 'all';
+
+function fullRisk(pct) {
+  if (pct < 30) return {key:'open',   label:'Mercado aberto',   cls:'risk-open'};
+  if (pct < 60) return {key:'caution',label:'Atenção ao Full',  cls:'risk-medium'};
+  return              {key:'closed',  label:'Mercado saturado', cls:'risk-closed'};
+}
+
+function fullInsight(pct) {
+  if (pct < 30) return {
+    cls:'open',
+    html:`<strong>Poucos no Full (${pct}%) — boa entrada.</strong> A maioria dos concorrentes usa Drop Off, o que nivela a competição. Espaço real para entrar com preço e TTS competitivos.`
+  };
+  if (pct < 60) return {
+    cls:'caution',
+    html:`<strong>Full moderado (${pct}%) — atenção.</strong> Parte relevante dos concorrentes já opera com Full, o que melhora prazo e visibilidade deles. Avalie se seu TTS e margem compensam essa desvantagem.`
+  };
+  return {
+    cls:'closed',
+    html:`<strong>Maioria no Full (${pct}%) — mercado fechado.</strong> Concorrentes bem consolidados com logística otimizada, estoque local e prazo curto. Entrar aqui sem Full é uma desvantagem estrutural — risco alto.`
+  };
+}
+
+function calcMargin(price, cost) {
+  if (!cost || cost <= 0) return null;
+  return ((price - cost) / price) * 100;
+}
+function marginClass(m) {
+  if (m === null) return 'empty';
+  if (m >= 30) return 'great';
+  if (m >= 15) return 'ok';
+  return 'bad';
+}
+function marginRec(m) {
+  if (m === null) return {text:'Insira o custo para calcular', color:'var(--gray-400)'};
+  if (m >= 30) return {text:'Boa margem', color:'var(--green)'};
+  if (m >= 15) return {text:'Margem ok', color:'var(--amber)'};
+  return {text:'Margem baixa', color:'var(--red)'};
+}
+
+function buildCard(key) {
+  const t = TERMS[key];
+  const cost = parseFloat(costs[key]) || 0;
+  const margin = cost > 0 ? calcMargin(t.avgPrice, cost) : null;
+  const mc = marginClass(margin);
+  const rec = marginRec(margin);
+  const lucro = cost > 0 ? (t.avgPrice - cost).toFixed(2) : null;
+  const fr = fullRisk(t.fullPct);
+  const fi = fullInsight(t.fullPct);
+  const isWinner = key === 'pasta'; // pasta tem Full baixo = mais aberto
+
+  return `
+  <div class="term-card">
+    <div class="term-card-header">
+      <div class="term-card-name">${t.short}</div>
+      <div class="badges-row">
+        <span class="risk-badge ${fr.cls}">${fr.label}</span>
+        ${isWinner ? '<span class="winner-badge">Mais acessível</span>' : ''}
+      </div>
+    </div>
+
+    <div class="kpi-section">
+      <div class="kpi-row">
+        <span class="kpi-label">Total de anúncios</span>
+        <span class="kpi-value purple">${t.total}</span>
+      </div>
+
+      <div class="kpi-row">
+        <span class="kpi-label">Com Full logística</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="kpi-bar-wrap">
+            <div class="kpi-bar-fill" style="width:${t.fullPct}%;background:${t.fullPct<30?'var(--green)':t.fullPct<60?'var(--amber)':'var(--red)'}"></div>
+          </div>
+          <span class="kpi-value ${t.fullPct<30?'green':t.fullPct<60?'amber':'red'}">${t.full} <span style="font-weight:400;font-size:11px;color:var(--gray-400)">(${t.fullPct}%)</span></span>
+        </div>
+      </div>
+
+      <div class="kpi-row">
+        <span class="kpi-label">Faixa de preço</span>
+        <span class="kpi-value" style="font-family:'DM Mono',monospace;font-size:12px;">R$ ${t.minPrice.toFixed(2)} – R$ ${t.maxPrice.toFixed(2)}</span>
+      </div>
+      <div class="kpi-row">
+        <span class="kpi-label">Preço médio do termo</span>
+        <span class="kpi-value" style="font-family:'DM Mono',monospace;">R$ ${t.avgPrice.toFixed(2)}</span>
+      </div>
+
+      <div class="kpi-divider"></div>
+
+      <div class="kpi-row">
+        <span class="kpi-label">Produtos com TTS &lt; 2h</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:${Math.min(t.ttsLow/t.total*100,100).toFixed(0)}%;background:var(--green)"></div></div>
+          <span class="kpi-value green">${t.ttsLow}</span>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <span class="kpi-label">Produtos com vendas &gt; 200</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:${Math.min(t.salesOver200/t.total*100,100).toFixed(0)}%;background:var(--purple)"></div></div>
+          <span class="kpi-value purple">${t.salesOver200}</span>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <span class="kpi-label">Volume total de vendas</span>
+        <span class="kpi-value">${t.totalSales.toLocaleString('pt-BR')}</span>
+      </div>
+      <div class="kpi-row">
+        <span class="kpi-label">TTS médio do termo</span>
+        <span class="kpi-value ${t.avgTts<2?'green':t.avgTts<10?'amber':'red'}">${t.avgTts}h</span>
+      </div>
+    </div>
+
+    <!-- INSIGHT FULL -->
+    <div class="full-insight ${fi.cls}" style="margin:0 16px 12px;">${fi.html}</div>
+
+    <!-- CALCULADORA -->
+    <div class="calc-section">
+      <div class="calc-title">Calculadora de margem</div>
+      <div class="calc-inputs">
+        <div class="calc-field">
+          <label>Meu custo (R$)</label>
+          <input type="number" min="0" step="0.01" placeholder="Ex: 18.00"
+            value="${costs[key]||''}"
+            oninput="updateCost('${key}',this.value)" id="cost-${key}" />
+        </div>
+        <div class="calc-field">
+          <label>Preço de venda (R$)</label>
+          <input type="number" min="0" step="0.01" placeholder="Ex: ${t.avgPrice.toFixed(2)}"
+            id="sell-${key}" oninput="refreshCard('${key}')" />
+        </div>
+      </div>
+      <div class="margin-result ${mc}" id="result-${key}">
+        <div>
+          <div style="font-size:11px;font-weight:500;color:${mc==='empty'?'var(--gray-400)':mc==='great'?'var(--green)':mc==='ok'?'var(--amber)':'var(--red)'}">${rec.text}</div>
+          ${margin!==null?`<div class="margin-sub" style="color:var(--gray-500)">Lucro unitário: R$ ${lucro} · base: preço médio do termo</div>`:''}
+        </div>
+        <div class="margin-value" style="color:${mc==='empty'?'var(--gray-300)':mc==='great'?'var(--green)':mc==='ok'?'var(--amber)':'var(--red)'}">
+          ${margin!==null?margin.toFixed(1)+'%':'—'}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildAllCards() {
+  const container = document.getElementById('termCards');
+  const keys = currentTerm==='all' ? ['pasta','regua','cola'] : [currentTerm];
+  container.className = 'compare-grid '+(keys.length===1?'single':'multi');
+  container.innerHTML = keys.map(buildCard).join('');
+  buildOppTable();
+}
+
+function updateCost(key, val) {
+  costs[key] = val;
+  refreshCard(key);
+  buildOppTable();
+}
+
+function refreshCard(key) {
+  const costEl = document.getElementById('cost-'+key);
+  const sellEl = document.getElementById('sell-'+key);
+  if (!costEl) return;
+  const cost = parseFloat(costEl.value)||0;
+  const sellVal = parseFloat(sellEl?.value)||0;
+  const price = sellVal>0 ? sellVal : TERMS[key].avgPrice;
+  const margin = cost>0 ? calcMargin(price,cost) : null;
+  const mc = marginClass(margin);
+  const rec = marginRec(margin);
+  const lucro = cost>0 ? (price-cost).toFixed(2) : null;
+  const el = document.getElementById('result-'+key);
+  if (!el) return;
+  el.className = 'margin-result '+mc;
+  el.innerHTML = `
+    <div>
+      <div style="font-size:11px;font-weight:500;color:${mc==='empty'?'var(--gray-400)':mc==='great'?'var(--green)':mc==='ok'?'var(--amber)':'var(--red)'}">${rec.text}</div>
+      ${margin!==null?`<div class="margin-sub" style="color:var(--gray-500)">Lucro unitário: R$ ${lucro} · base: ${sellVal>0?'preço inserido':'preço médio'}</div>`:''}
+    </div>
+    <div class="margin-value" style="color:${mc==='empty'?'var(--gray-300)':mc==='great'?'var(--green)':mc==='ok'?'var(--amber)':'var(--red)'}">
+      ${margin!==null?margin.toFixed(1)+'%':'—'}
+    </div>`;
+}
+
+function buildOppTable() {
+  // REGRA CORRIGIDA: Full alto do termo = penaliza / exclui
+  const candidates = PRODUCTS.filter(p => {
+    const t = TERMS[p.term];
+    const cost = parseFloat(costs[p.term])||0;
+    const margin = cost>0 ? calcMargin(p.price,cost) : null;
+    const passMargin = margin===null || margin>=30;
+    const termNotSaturated = t.fullPct < 60; // Full alto bloqueia recomendação
+    return p.tts<2 && p.sales>200 && passMargin && termNotSaturated;
+  });
+
+  document.getElementById('opp-count').textContent = candidates.length+' produto'+(candidates.length!==1?'s':'');
+  const termNames = {cola:'Cola Master', pasta:'Pasta Plascony', regua:'Régua Souza'};
+  const tbody = document.getElementById('oppBody');
+
+  if (candidates.length===0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--gray-400);font-size:12px;">
+      Nenhum produto aprovado. Verifique se os termos têm Full &lt; 60% e insira seu custo para checar margem.
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = candidates.sort((a,b)=>a.tts-b.tts).map(p => {
+    const t = TERMS[p.term];
+    const cost = parseFloat(costs[p.term])||0;
+    const margin = cost>0 ? calcMargin(p.price,cost) : null;
+    const fr = fullRisk(t.fullPct);
+    return `<tr>
+      <td><div style="font-weight:500;color:var(--gray-900);font-size:12px;">${p.name}</div>
+          <div class="td-note">${termNames[p.term]} · Full do termo: <span style="color:${t.fullPct<30?'var(--green)':t.fullPct<60?'var(--amber)':'var(--red)'};font-weight:600">${t.fullPct}%</span></div></td>
+      <td><span class="risk-badge ${fr.cls}" style="font-size:10px;">${fr.label}</span></td>
+      <td><span class="tts-badge ${p.tts<1?'tts-fast':'tts-medium'}">${p.tts}h</span></td>
+      <td style="font-weight:500;">${p.sales.toLocaleString('pt-BR')}</td>
+      <td style="font-family:'DM Mono',monospace;">R$ ${p.price.toFixed(2)}</td>
+      <td>${margin!==null?`<span class="margin-chip">${margin.toFixed(1)}%</span>`:`<span style="font-size:11px;color:var(--gray-300)">—</span>`}</td>
+      <td>${p.full?'<span class="full-chip full-yes">✓ Full</span>':'<span class="full-chip full-no">Drop</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function setTerm(term, btn) {
+  currentTerm = term;
+  document.querySelectorAll('.term-pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  buildAllCards();
+}
+
+buildAllCards();
+</script>
