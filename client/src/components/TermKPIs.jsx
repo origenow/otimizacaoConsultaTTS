@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import PropTypes from 'prop-types';
 
 const safeFloat = (v) => {
   const n = Number.parseFloat(String(v).replace(',', '.'));
@@ -50,7 +51,7 @@ function marginRec(m) {
   return { text: 'Margem baixa', color: 'text-red-600' };
 }
 
-export default function TermKPIs({ results }) {
+function TermKPIs({ results }) {
   const [costs, setCosts] = useState({});
   const [selectedTerms, setSelectedTerms] = useState(['all']);
   const [sellPrices, setSellPrices] = useState({});
@@ -489,3 +490,9 @@ export default function TermKPIs({ results }) {
     </div>
   );
 }
+
+TermKPIs.propTypes = {
+    results: PropTypes.arrayOf(PropTypes.object).isRequired,
+};
+
+export default TermKPIs;

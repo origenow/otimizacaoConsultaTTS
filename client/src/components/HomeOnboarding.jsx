@@ -1,6 +1,7 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
-const HomeOnboarding = ({ query, setQuery, handleSearch, loading, searchInputRef }) => {
+const HomeOnboarding = ({ query, setQuery, handleSearch, handleCancelSearch, loading, searchInputRef }) => {
     return (
         <div className="w-full max-w-[1100px] mx-auto space-y-16 pb-20 animate-fade-in-up">
 
@@ -202,6 +203,15 @@ const HomeOnboarding = ({ query, setQuery, handleSearch, loading, searchInputRef
 
         </div>
     );
+};
+
+HomeOnboarding.propTypes = {
+    query: PropTypes.string.isRequired,
+    setQuery: PropTypes.func.isRequired,
+    handleSearch: PropTypes.func.isRequired,
+    handleCancelSearch: PropTypes.func.isRequired,
+    loading: PropTypes.bool.isRequired,
+    searchInputRef: PropTypes.shape({ current: PropTypes.instanceOf(Element) }).isRequired,
 };
 
 export default HomeOnboarding;

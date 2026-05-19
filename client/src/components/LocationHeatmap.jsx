@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { BRAZIL_STATES } from './BrazilMapData';
 
 
 
-export default function LocationHeatmap({ results }) {
+function LocationHeatmap({ results }) {
     const [hoveredState, setHoveredState] = useState(null);
 
     const stateCounts = useMemo(() => {
@@ -188,3 +189,9 @@ export default function LocationHeatmap({ results }) {
         </div>
     );
 }
+
+LocationHeatmap.propTypes = {
+    results: PropTypes.arrayOf(PropTypes.object).isRequired,
+};
+
+export default LocationHeatmap;

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 
 const CookieUpdaterModal = ({ isOpen, onClose, onUpdate }) => {
     const [ssid, setSsid] = useState('');
@@ -63,8 +64,9 @@ const CookieUpdaterModal = ({ isOpen, onClose, onUpdate }) => {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Novo Cookie SSID</label>
+                            <label htmlFor="cookie-ssid" className="block text-xs font-bold text-gray-500 uppercase mb-1">Novo Cookie SSID</label>
                             <input
+                                id="cookie-ssid"
                                 type="text"
                                 value={ssid}
                                 onChange={(e) => setSsid(e.target.value)}
@@ -112,6 +114,12 @@ const CookieUpdaterModal = ({ isOpen, onClose, onUpdate }) => {
             </div>
         </div>
     );
+};
+
+CookieUpdaterModal.propTypes = {
+    isOpen: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    onUpdate: PropTypes.func.isRequired,
 };
 
 export default CookieUpdaterModal;

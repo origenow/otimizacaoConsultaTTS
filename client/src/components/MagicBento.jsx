@@ -1,5 +1,6 @@
 
 import { useRef, useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import { gsap } from 'gsap';
 
 const DEFAULT_PARTICLE_COUNT = 12;
@@ -465,6 +466,32 @@ const MagicBento = ({
             </BentoCardGrid>
         </>
     );
+};
+
+MagicBento.propTypes = {
+    cards: PropTypes.arrayOf(PropTypes.shape({
+        title: PropTypes.string,
+        label: PropTypes.string,
+        description: PropTypes.string,
+        icon: PropTypes.node,
+        colSpan: PropTypes.number,
+        className: PropTypes.string,
+        backgroundColor: PropTypes.string,
+        textColor: PropTypes.string,
+        customContent: PropTypes.node,
+        onClick: PropTypes.func,
+    })),
+    textAutoHide: PropTypes.bool,
+    enableStars: PropTypes.bool,
+    enableSpotlight: PropTypes.bool,
+    enableBorderGlow: PropTypes.bool,
+    disableAnimations: PropTypes.bool,
+    spotlightRadius: PropTypes.number,
+    particleCount: PropTypes.number,
+    enableTilt: PropTypes.bool,
+    glowColor: PropTypes.string,
+    clickEffect: PropTypes.bool,
+    enableMagnetism: PropTypes.bool,
 };
 
 export default MagicBento;

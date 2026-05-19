@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import './CustomLoader.css';
 
 const CustomLoader = ({ message, progress = 0, termsCount = 1 }) => {
@@ -56,6 +57,12 @@ const CustomLoader = ({ message, progress = 0, termsCount = 1 }) => {
             </div>
         </div>
     );
+};
+
+CustomLoader.propTypes = {
+    message: PropTypes.string,
+    progress: PropTypes.number,
+    termsCount: PropTypes.number,
 };
 
 export default CustomLoader;

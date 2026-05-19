@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 
 const LoginPage = ({ onLogin }) => {
     const [username, setUsername] = useState('');
@@ -38,7 +39,7 @@ const LoginPage = ({ onLogin }) => {
                 <div className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-3xl p-8 md:p-10">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700 ml-1">Usuário</label>
+                            <label htmlFor="login-username" className="text-sm font-bold text-gray-700 ml-1">Usuário</label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <svg className="w-5 h-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -46,6 +47,7 @@ const LoginPage = ({ onLogin }) => {
                                     </svg>
                                 </div>
                                 <input
+                                    id="login-username"
                                     type="text"
                                     required
                                     className="block w-full pl-11 pr-4 py-3.5 rounded-2xl text-gray-800 bg-gray-50/50 border border-gray-100 focus:bg-white focus:border-purple-500/30 focus:ring-4 focus:ring-purple-500/5 outline-none transition-all duration-300 placeholder-gray-400 shadow-sm"
@@ -57,7 +59,7 @@ const LoginPage = ({ onLogin }) => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700 ml-1">Senha</label>
+                            <label htmlFor="login-password" className="text-sm font-bold text-gray-700 ml-1">Senha</label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <svg className="w-5 h-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -65,6 +67,7 @@ const LoginPage = ({ onLogin }) => {
                                     </svg>
                                 </div>
                                 <input
+                                    id="login-password"
                                     type="password"
                                     required
                                     className="block w-full pl-11 pr-4 py-3.5 rounded-2xl text-gray-800 bg-gray-50/50 border border-gray-100 focus:bg-white focus:border-purple-500/30 focus:ring-4 focus:ring-purple-500/5 outline-none transition-all duration-300 placeholder-gray-400 shadow-sm"
@@ -103,6 +106,10 @@ const LoginPage = ({ onLogin }) => {
             </div>
         </div>
     );
+};
+
+LoginPage.propTypes = {
+    onLogin: PropTypes.func.isRequired,
 };
 
 export default LoginPage;

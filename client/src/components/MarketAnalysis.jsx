@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import XLSX from 'xlsx-js-style';
 import {
   Chart,
@@ -814,7 +815,7 @@ function TtsRankCurve({ results }) {
 // ════════════════════════════════════════════════════════════════════════════
 // ROOT EXPORT
 // ════════════════════════════════════════════════════════════════════════════
-export default function MarketAnalysis({ results }) {
+function MarketAnalysis({ results }) {
     if (!results || results.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
@@ -839,4 +840,10 @@ export default function MarketAnalysis({ results }) {
         <TtsRankCurve results={results} />
       </div>
     );
-  }
+}
+
+MarketAnalysis.propTypes = {
+    results: PropTypes.arrayOf(PropTypes.object).isRequired,
+};
+
+export default MarketAnalysis;
