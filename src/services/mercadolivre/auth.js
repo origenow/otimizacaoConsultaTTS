@@ -1,5 +1,5 @@
 import fetch from "node-fetch";
-import https from 'https';
+import https from 'node:https';
 import * as cheerio from 'cheerio';
 import { config } from '../../config/index.js';
 
@@ -26,7 +26,7 @@ export async function getAccessToken() {
 }
 
 export async function getAuthHeaders(proxyIterator) {
-    let agent = undefined;
+    let agent;
 
     // Seleciona um proxy aleatório se USE_PROXY estiver ativo
     if (config.USE_PROXY && proxyIterator) {
@@ -60,10 +60,10 @@ export async function getAuthHeaders(proxyIterator) {
 
         cookies.split(',').forEach(cookie => {
             if (cookie.includes('_csrf')) {
-                csrfToken = (cookie.match(/_csrf=([^;]+)/) || [])[1];
+                csrfToken = (/_csrf=([^;]+)/.exec(cookie) || [])[1];
             }
             if (cookie.includes('_d2id')) {
-                d2id = (cookie.match(/_d2id=([^;]+)/) || [])[1];
+                d2id = (/_d2id=([^;]+)/.exec(cookie) || [])[1];
             }
         });
 

@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { config } from './config/index.js';
 import { createRandomIterator } from './services/proxy/iterator.js';
 import { getProxyList } from './services/proxy/provider.js';
@@ -16,7 +16,12 @@ const rootDir = path.resolve(__dirname, '..'); // Root of the project
 const app = express();
 const port = 3000;
 
-app.use(cors());
+app.disable('x-powered-by');
+app.use(cors({
+    origin: process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+}));
 app.use(express.json());
 
 const clientBuildPath = path.join(rootDir, 'client', 'dist');
@@ -120,7 +125,8 @@ app.post('/api/search', async (req, res) => {
             console.error('⛔ Sessão expirada. Retornando 401 para o cliente.');
             return res.status(401).json({ code: 'AUTH_EXPIRED', error: 'Sessão do Mercado Livre expirada' });
         }
-        console.error(`❌ Erro ao processar busca para "${req.body.query}":`, error);
+        const safeQuery = String(req.body.query ?? '').replace(/[\r\n]/g, ' ').substring(0, 200);
+        console.error(`❌ Erro ao processar busca para "${safeQuery}":`, error);
         res.status(500).json({ error: 'Erro interno ao processar a busca' });
     }
 });

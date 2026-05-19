@@ -1,5 +1,5 @@
 import fetch from "node-fetch";
-import https from 'https';
+import https from 'node:https';
 import { config } from '../../config/index.js';
 import { getAuthHeaders } from './auth.js';
 import { getseller, simulateshippingCost, fetchSaleFees } from './client.js';
@@ -59,14 +59,6 @@ export function getMarcaENumeroPeca(data) {
         };
     }
 
-    try {
-        console.log(data.components.content_left.find(obj => obj.id === "highlighted_specs_attrs").components.find(obj => obj.id === "technical_specifications").specs.find(obj => obj.column === "LEFT").attributes.find(obj => obj.id === "Marca").text);
-    console.log(data.components.content_left.find(obj => obj.id === "highlighted_specs_attrs").components.find(obj => obj.id === "technical_specifications").specs.find(obj => obj.column === "LEFT").attributes.find(obj => obj.id === "Número de peça").text);
-
-
-    } catch {
-    }
-
     return {
         marca: findAttribute(data, ["BRAND"], ["Marca"]),
         numeroPeca: findAttribute(data, ["PART_NUMBER", "MPN"], ["Número de peça", "Numero de peça"]),
@@ -97,7 +89,7 @@ export async function ifCatalog(catalogID, xsrf, csrf, d2id, proxyIterator) {
         return catalogCache.get(catalogID);
     }
 
-    let agent = undefined;
+    let agent;
 
     // Seleciona um proxy aleatório se USE_PROXY estiver ativo
     if (config.USE_PROXY && proxyIterator) {
@@ -107,7 +99,7 @@ export async function ifCatalog(catalogID, xsrf, csrf, d2id, proxyIterator) {
         agent = new https.Agent({ proxy: proxyUrl });
     }
 
-    let url = `https://www.mercadolivre.com.br/p/api/products/${catalogID}/s?page=1&quantity=1`;
+    let url = `https://www.mercadolivre.com.br/p/api/products/${encodeURIComponent(catalogID)}/s?page=1&quantity=1`;
     const fetchOptions = {
         method: 'GET',
         headers: {
@@ -157,24 +149,7 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
         return itemCache.get(itemID);
     }
 
-    // Função para adicionar os zeros quando necessário 
-    const formatNumbers = (str) => {
-        if (str !== undefined) {
-            return str.replace(/(\d+)(mil)?|[+]?(\d+)\s?vendidos/g, (match, num, mil, plusNum) => {
-                // Se encontrar o formato de "mil" ou "milhares"
-                if (mil) {
-                    return num + '000';  // Converte o número para milhar
-                }
-                // Se encontrar o formato com "+1000 vendidos"
-                if (plusNum) {
-                    return plusNum;  // Apenas retorna o número de "vendidos" sem o símbolo "+"
-                }
-                return num;  // Caso não tenha "mil" nem "vendidos", retorna o número original
-            });
-        }
-    }
-
-    let agent = undefined;
+    let agent;
 
     // Seleciona um proxy aleatório se USE_PROXY estiver ativo
     if (config.USE_PROXY && proxyIterator) {
@@ -184,7 +159,7 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
         agent = new https.Agent({ proxy: proxyUrl });
     }
 
-    let url = `https://produto.mercadolivre.com.br/p/api/items?id=${itemID}&platform=ML&app=vip`;
+    let url = `https://produto.mercadolivre.com.br/p/api/items?id=${encodeURIComponent(itemID)}&platform=ML&app=vip`;
 
     const fetchOptions = {
         method: 'GET',
@@ -370,7 +345,7 @@ export async function searchProducts(query, proxyIterator, accessToken) {
     // Obter headers de autenticação
     const authHeaders = await getAuthHeaders(proxyIterator);
 
-    let agent = undefined;
+    let agent;
 
     // Seleciona um proxy aleatório se USE_PROXY estiver ativo
     if (config.USE_PROXY && proxyIterator) {
@@ -395,7 +370,7 @@ export async function searchProducts(query, proxyIterator, accessToken) {
         requestOptions.agent = agent;
     }
 
-    let response = await fetch(`https://www.mercadolivre.com.br/api/search/client?url=${searchUrl}`, requestOptions)
+    let response = await fetch(`https://www.mercadolivre.com.br/api/search/client?url=${encodeURIComponent(searchUrl)}`, requestOptions)
         .then((response) => response.json())
         .then((result) => {
             return result;
@@ -465,7 +440,6 @@ export async function searchProducts(query, proxyIterator, accessToken) {
             reputation_level: itemInfo.reputation_level,
             power_seller_status: itemInfo.power_seller_status,
             free_shipping: itemInfo.free_shipping,
-            quantity: itemInfo.quantity,
             quantity: itemInfo.quantity,
             thumbnail: itemInfo.thumbnail,
             marca: itemInfo.marca || null,

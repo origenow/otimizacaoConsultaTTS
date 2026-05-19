@@ -9,7 +9,8 @@ export function createRandomIterator(array, interval = 30) {
 
             // Tenta encontrar um item que possa ser usado
             do {
-                randomIndex = Math.floor(Math.random() * array.length);
+                // Math.random() is intentional here: proxy rotation does not require cryptographic randomness
+                randomIndex = Math.floor(Math.random() * array.length); // NOSONAR
 
                 // Verifica se o item foi utilizado recentemente e se já passou o tempo de espera
                 if (!lastUsed[randomIndex] || now - lastUsed[randomIndex] >= interval) {

@@ -162,6 +162,18 @@ export default function TermKPIs({ results }) {
   const uniqueTerms = Object.keys(terms);
   const totalTerms = uniqueTerms.length;
 
+  // useMemo must be declared before any early return to comply with Rules of Hooks
+  const allCandidates = useMemo(() => {
+    return products.filter(p => {
+      const t = terms[p.term];
+      const cost = Number.parseFloat(costs[p.term]) || 0;
+      const margin = cost > 0 ? calcMargin(p.price, cost) : null;
+      const passMargin = margin === null || margin >= 30;
+      const termNotSaturated = t.fullPct < 60;
+      return p.tts < 2 && p.sales > 200 && passMargin && termNotSaturated && p.price > 0;
+    }).sort((a, b) => a.tts - b.tts);
+  }, [products, terms, costs, calcMargin]);
+
   if (totalTerms === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
@@ -175,18 +187,6 @@ export default function TermKPIs({ results }) {
   }
 
   const termsToDisplay = selectedTerms.includes('all') ? uniqueTerms : selectedTerms;
-
-  // OPPS Candidates logic with sorting and pagination
-  const allCandidates = useMemo(() => {
-    return products.filter(p => {
-      const t = terms[p.term];
-      const cost = parseFloat(costs[p.term]) || 0;
-      const margin = cost > 0 ? calcMargin(p.price, cost) : null;
-      const passMargin = margin === null || margin >= 30;
-      const termNotSaturated = t.fullPct < 60;
-      return p.tts < 2 && p.sales > 200 && passMargin && termNotSaturated && p.price > 0;
-    }).sort((a, b) => a.tts - b.tts);
-  }, [products, terms, costs, calcMargin]);
 
   const totalPages = Math.ceil(allCandidates.length / pageSize);
   const paginatedCandidates = allCandidates.slice(
