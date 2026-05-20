@@ -360,6 +360,138 @@ function applyTableSort(tableSortBy, colKey, setTableSortBy, setTableSortDir, se
   setTablePage(1);
 }
 
+function buildStatsCards(stats, setSelectedProduct) {
+  if (!stats) return [];
+
+  const cards = [
+    {
+      id: 'total-items',
+      title: stats.totalItems.toString(),
+      label: 'Itens Analisados',
+      description: 'Total de anúncios processados.',
+      icon: (
+        <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+      ),
+      colSpan: 1,
+    },
+    {
+      id: 'avg-tts',
+      title: `${stats.avgTTS} dias`,
+      label: 'Média TTS',
+      description: 'Tempo médio de venda.',
+      icon: (
+        <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      colSpan: 1,
+    },
+    {
+      id: 'total-sales',
+      title: stats.totalSales.toLocaleString('pt-BR'),
+      label: 'Volume de Vendas',
+      description: 'Total acumulado.',
+      icon: (
+        <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      ),
+      colSpan: 1,
+    },
+    {
+      id: 'price-range',
+      title: `R$ ${stats.avgPrice}`,
+      label: 'Preço Médio',
+      description: `Min: R$${stats.minPrice.toFixed(0)} - Max: R$${stats.maxPrice.toFixed(0)}`,
+      icon: (
+        <svg className="w-6 h-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      colSpan: 1,
+    },
+  ];
+
+  if (stats.bestTTS) {
+    cards.push({
+      id: 'best-tts',
+      colSpan: 4,
+      className: 'bg-gradient-to-r from-gray-900 to-gray-800 text-white !p-0',
+      textColor: '#ffffff',
+      onClick: () => setSelectedProduct(stats.bestTTS),
+      customContent: (
+        <div className="relative w-full h-full p-6 sm:p-8 flex flex-col md:flex-row gap-8 group overflow-hidden cursor-pointer" title="Clique para ver detalhes">
+          <div className="absolute top-0 right-0 p-48 bg-white/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none transition-opacity opacity-50 group-hover:opacity-80"></div>
+          <div className="flex-1 flex flex-col justify-center relative z-10 min-w-[40%]">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-origenow-fire/20 text-origenow-fire border border-origenow-fire/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md shadow-lg flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-origenow-fire animate-pulse inline-block"></span>{' '}
+                <span>Campeão de Vendas</span>
+              </div>
+              <span className="text-gray-400 text-xs font-bold tracking-widest uppercase opacity-70">Top #1 Performance</span>
+            </div>
+            <div className="flex items-start gap-5">
+              <div className="w-28 h-28 sm:w-32 sm:h-32 bg-white rounded-2xl p-2 shadow-2xl transform group-hover:scale-105 transition-transform duration-500 border border-white/10 flex-shrink-0">
+                <img src={stats.bestTTS.thumbnail} alt="" className="w-full h-full object-contain mix-blend-multiply" />
+              </div>
+              <div className="flex flex-col gap-2 pt-1">
+                <h3 className="font-bold text-lg sm:text-xl text-white leading-tight line-clamp-2 drop-shadow-md" title={stats.bestTTS.title}>
+                  {stats.bestTTS.title}
+                </h3>
+                <p className="text-sm font-mono text-gray-400 flex items-center gap-2">
+                  <span className="opacity-70">ID:</span> {stats.bestTTS.id}
+                </p>
+                <button className="mt-2 text-xs font-bold text-white bg-white/10 hover:bg-white/20 hover:cursor-pointer border border-white/20 px-4 py-2 rounded-lg transition-all w-fit flex items-center gap-2 group/btn">
+                  Ver Detalhes
+                  <svg className="w-3 h-3 transform group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-4 items-center relative z-10">
+            <div className="col-span-2 sm:col-span-1 bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors group/stat text-center">
+              <div className="flex items-baseline justify-center gap-1">
+                <span className="text-5xl font-black text-origenow-fire drop-shadow-sm">{stats.bestTTS.tts}</span>
+                <span className="text-base text-white/50 font-medium">h</span>
+              </div>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-2">Tempo por Venda</p>
+              <p className="text-[10px] text-gray-500 mt-1 leading-tight">
+                Velocidade: <span className="text-white font-bold">{stats.bestTTS.velocity?.toLocaleString('pt-BR')}</span> vendas/dia
+              </p>
+            </div>
+            <div className="bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors text-center">
+              <span className="text-3xl font-black text-white block">R$ {stats.bestTTS.price?.toFixed(2)}</span>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-2">Preço Atual</p>
+            </div>
+            <div className="bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors text-center">
+              <span className="text-3xl font-black text-white block">{stats.bestTTS.sales_quantity?.toLocaleString('pt-BR')}</span>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-2">Vendas Totais</p>
+              <p className="text-[10px] text-gray-500 mt-1">{stats.bestTTS.intervalo_dias ? `Em ${stats.bestTTS.intervalo_dias} dias` : 'No total'}</p>
+            </div>
+          </div>
+        </div>
+      )
+    });
+  }
+
+  return cards;
+}
+
+function cancelSearch(abortControllerRef, results, setters) {
+  const { setLoading, setSearchProgress, setHasSearched } = setters;
+  if (abortControllerRef.current) {
+    abortControllerRef.current.abort();
+    abortControllerRef.current = null;
+  }
+  setLoading(false);
+  setSearchProgress('');
+  if (results.length === 0) {
+    setHasSearched(false);
+  }
+}
+
 async function executeSearch(query, abortControllerRef, setters) {
   const {
     setCurrentSearchIndex, setSearchProgress, setLoading, setError, setResults,
@@ -479,18 +611,7 @@ function App() {
     });
   };
 
-  const handleCancelSearch = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setLoading(false);
-    setSearchProgress('');
-    // Se não tiver resultados nenhum, volta para o estado inicial
-    if (results.length === 0) {
-      setHasSearched(false);
-    }
-  };
+  const handleCancelSearch = () => cancelSearch(abortControllerRef, results, { setLoading, setSearchProgress, setHasSearched });
 
   const handleUpdateCookie = async (newSsid) => {
     const response = await fetch(`${API_URL}/api/settings/ssid`, {
@@ -583,7 +704,7 @@ function App() {
 
   // Table-specific sorted results (independent from cards)
   const tableSortedResults = useMemo(() => {
-    const baseResults = tableBadgeFilter && tableBadgeFilter !== 'Todos'
+    const baseResults = tableBadgeFilter !== 'Todos'
       ? filteredResults.filter(item => getProductBadges(item).some(b => b.label === tableBadgeFilter))
       : filteredResults;
     return [...baseResults].sort((a, b) => compareTableRows(a, b, tableSortBy, tableSortDir));
@@ -616,137 +737,7 @@ function App() {
   const stats = useMemo(() => computeStats(filteredResults), [filteredResults]);
 
   // Transform stats for MagicBento
-  const statsCards = useMemo(() => {
-    if (!stats) return [];
-
-    const cards = [
-      {
-        id: 'total-items',
-        title: stats.totalItems.toString(),
-        label: 'Itens Analisados',
-        description: 'Total de anúncios processados.',
-        icon: (
-          <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
-        ),
-        colSpan: 1,
-      },
-      {
-        id: 'avg-tts',
-        title: `${stats.avgTTS} dias`,
-        label: 'Média TTS',
-        description: 'Tempo médio de venda.',
-        icon: (
-          <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        ),
-        colSpan: 1,
-      },
-      {
-        id: 'total-sales',
-        title: stats.totalSales.toLocaleString('pt-BR'),
-        label: 'Volume de Vendas',
-        description: 'Total acumulado.',
-        icon: (
-          <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-          </svg>
-        ),
-        colSpan: 1,
-      },
-      {
-        id: 'price-range',
-        title: `R$ ${stats.avgPrice}`,
-        label: 'Preço Médio',
-        description: `Min: R$${stats.minPrice.toFixed(0)} - Max: R$${stats.maxPrice.toFixed(0)}`,
-        icon: (
-          <svg className="w-6 h-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        ),
-        colSpan: 1,
-      },
-    ];
-
-    if (stats.bestTTS) {
-      cards.push({
-        id: 'best-tts',
-        colSpan: 4,
-        className: 'bg-gradient-to-r from-gray-900 to-gray-800 text-white !p-0',
-        textColor: '#ffffff',
-        onClick: () => setSelectedProduct(stats.bestTTS),
-        customContent: (
-          <div className="relative w-full h-full p-6 sm:p-8 flex flex-col md:flex-row gap-8 group overflow-hidden cursor-pointer" title="Clique para ver detalhes">
-            {/* Background Effects */}
-            <div className="absolute top-0 right-0 p-48 bg-white/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none transition-opacity opacity-50 group-hover:opacity-80"></div>
-
-            {/* Left Column: Identity & Visual */}
-            <div className="flex-1 flex flex-col justify-center relative z-10 min-w-[40%]">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-origenow-fire/20 text-origenow-fire border border-origenow-fire/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md shadow-lg flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-origenow-fire animate-pulse inline-block"></span>{' '}
-                  <span>Campeão de Vendas</span>
-                </div>
-                <span className="text-gray-400 text-xs font-bold tracking-widest uppercase opacity-70">Top #1 Performance</span>
-              </div>
-
-              <div className="flex items-start gap-5">
-                <div className="w-28 h-28 sm:w-32 sm:h-32 bg-white rounded-2xl p-2 shadow-2xl transform group-hover:scale-105 transition-transform duration-500 border border-white/10 flex-shrink-0">
-                  <img src={stats.bestTTS.thumbnail} alt="" className="w-full h-full object-contain mix-blend-multiply" />
-                </div>
-                <div className="flex flex-col gap-2 pt-1">
-                  <h3 className="font-bold text-lg sm:text-xl text-white leading-tight line-clamp-2 drop-shadow-md" title={stats.bestTTS.title}>
-                    {stats.bestTTS.title}
-                  </h3>
-                  <p className="text-sm font-mono text-gray-400 flex items-center gap-2">
-                    <span className="opacity-70">ID:</span> {stats.bestTTS.id}
-                  </p>
-                  <button className="mt-2 text-xs font-bold text-white bg-white/10 hover:bg-white/20 hover:cursor-pointer border border-white/20 px-4 py-2 rounded-lg transition-all w-fit flex items-center gap-2 group/btn">
-                    Ver Detalhes
-                    <svg className="w-3 h-3 transform group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Key Metrics Grid */}
-            <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-4 items-center relative z-10">
-              {/* Hours per Sale Metric (Main) */}
-              <div className="col-span-2 sm:col-span-1 bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors group/stat text-center">
-                <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-5xl font-black text-origenow-fire drop-shadow-sm">
-                    {stats.bestTTS.tts}
-                  </span>
-                  <span className="text-base text-white/50 font-medium">h</span>
-                </div>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-2">Tempo por Venda</p>
-                <p className="text-[10px] text-gray-500 mt-1 leading-tight">
-                  Velocidade: <span className="text-white font-bold">{stats.bestTTS.velocity?.toLocaleString('pt-BR')}</span> vendas/dia
-                </p>
-              </div>
-
-              {/* Price Metric */}
-              <div className="bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors text-center">
-                <span className="text-3xl font-black text-white block">R$ {stats.bestTTS.price?.toFixed(2)}</span>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-2">Preço Atual</p>
-              </div>
-
-              {/* Sales Vol Metric */}
-              <div className="bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors text-center">
-                <span className="text-3xl font-black text-white block">{stats.bestTTS.sales_quantity?.toLocaleString('pt-BR')}</span>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-2">Vendas Totais</p>
-                <p className="text-[10px] text-gray-500 mt-1">{stats.bestTTS.intervalo_dias ? `Em ${stats.bestTTS.intervalo_dias} dias` : 'No total'}</p>
-              </div>
-            </div>
-          </div>
-        )
-      });
-    }
-
-    return cards;
-  }, [stats]);
+  const statsCards = useMemo(() => buildStatsCards(stats, setSelectedProduct), [stats, setSelectedProduct]);
 
   const effectiveCount = selectedExportIds.size > 0 ? selectedExportIds.size : tableSortedResults.length;
   const exportLabel = exportRowLimit && Number(exportRowLimit) > 0

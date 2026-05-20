@@ -16,10 +16,24 @@ const ALLOWED_ML_HOSTS = new Set([
     'lista.mercadolivre.com.br',
 ]);
 
+const ML_ID_RE = /^[A-Z]{2,4}\d{3,20}$/;
+const ML_SEARCH_HOST = 'https://lista.mercadolivre.com.br/';
+
 function assertMeliHost(urlString) {
     const { hostname } = new URL(urlString);
     if (!ALLOWED_ML_HOSTS.has(hostname)) throw new Error(`Blocked host: ${hostname}`);
     return urlString;
+}
+
+function validateMlId(id) {
+    const str = String(id ?? '');
+    if (!ML_ID_RE.test(str)) throw new Error(`Invalid ML ID: ${str}`);
+    return str;
+}
+
+function validateMlSearchUrl(url) {
+    if (!String(url).startsWith(ML_SEARCH_HOST)) throw new Error(`Invalid ML search URL: ${url}`);
+    return url;
 }
 
 function findAttribute(data, ids = [], labels = []) {
@@ -111,7 +125,7 @@ export async function ifCatalog(catalogID, xsrf, csrf, d2id, proxyIterator) {
         agent = new https.Agent({ proxy: proxyUrl });
     }
 
-    const _catalogUrl = new URL(`/p/api/products/${encodeURIComponent(catalogID)}/s`, 'https://www.mercadolivre.com.br');
+    const _catalogUrl = new URL(`/p/api/products/${encodeURIComponent(validateMlId(catalogID))}/s`, 'https://www.mercadolivre.com.br');
     _catalogUrl.searchParams.set('page', '1');
     _catalogUrl.searchParams.set('quantity', '1');
     let url = _catalogUrl.toString();
@@ -206,7 +220,7 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
     }
 
     const _itemUrl = new URL('/p/api/items', 'https://produto.mercadolivre.com.br');
-    _itemUrl.searchParams.set('id', itemID);
+    _itemUrl.searchParams.set('id', validateMlId(itemID));
     _itemUrl.searchParams.set('platform', 'ML');
     _itemUrl.searchParams.set('app', 'vip');
     let url = _itemUrl.toString();
@@ -360,7 +374,7 @@ export async function searchProducts(query, proxyIterator, accessToken) {
     }
 
     const _searchApiUrl = new URL('/api/search/client', 'https://www.mercadolivre.com.br');
-    _searchApiUrl.searchParams.set('url', searchUrl);
+    _searchApiUrl.searchParams.set('url', validateMlSearchUrl(searchUrl));
     let response = await fetch(assertMeliHost(_searchApiUrl.toString()), requestOptions)
         .then((response) => response.json())
         .then((result) => {
