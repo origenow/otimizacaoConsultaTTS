@@ -542,6 +542,17 @@ async function executeSearch(query, abortControllerRef, setters) {
   abortControllerRef.current = null;
 }
 
+const FILTER_BTN_INACTIVE = 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-origenow-purple hover:bg-purple-50';
+const FILTER_BTN_ACTIVE_BASE = 'bg-purple-100 text-purple-800 border-purple-300 shadow-sm';
+
+function filterBtnClass(isActive, extraActive) {
+  return isActive ? `${FILTER_BTN_ACTIVE_BASE}${extraActive ? ` ${extraActive}` : ''}` : FILTER_BTN_INACTIVE;
+}
+
+function getEffectiveCount(selectedExportIds, tableSortedResults) {
+  return selectedExportIds.size > 0 ? selectedExportIds.size : tableSortedResults.length;
+}
+
 const ALL_EXPORT_COLUMNS = [
   { k: 'id', l: 'ID', header: 'ID', width: 15, getValue: item => item.id },
   { k: 'title', l: 'Título', header: 'TÍTULO', width: 40, getValue: item => item.title || '' },
@@ -744,7 +755,7 @@ function App() {
   // Transform stats for MagicBento
   const statsCards = useMemo(() => buildStatsCards(stats, setSelectedProduct), [stats, setSelectedProduct]);
 
-  const effectiveCount = selectedExportIds.size > 0 ? selectedExportIds.size : tableSortedResults.length;
+  const effectiveCount = getEffectiveCount(selectedExportIds, tableSortedResults);
   const exportLabel = buildExportLabel(exportRowLimit, effectiveCount);
 
   if (!isAuthenticated) {
@@ -786,7 +797,7 @@ function App() {
                   </svg>
                 </div>
                 <textarea
-                  ref={hasSearched ? searchInputRef : undefined}
+                  ref={searchInputRef}
                   rows={1}
                   className="block w-full pl-12 pr-28 py-2.5 rounded-[22px] text-sm text-gray-700 bg-gray-50/55 border border-gray-200/22 focus:bg-white focus:border-purple-500/35 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all duration-300 placeholder-gray-400 shadow-sm resize-none custom-scrollbar"
                   placeholder="Cole os códigos ou digite o termo..."
@@ -940,10 +951,7 @@ function App() {
                 <div className="flex items-center justify-start gap-2 overflow-x-auto pb-4 px-4 custom-scrollbar">
                   <button
                     onClick={() => setSelectedProductFilter(null)}
-                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 border cursor-pointer whitespace-nowrap ${selectedProductFilter === null
-                      ? 'bg-purple-100 text-purple-800 border-purple-300 shadow-sm'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-origenow-purple hover:bg-purple-50'
-                      }`}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 border cursor-pointer whitespace-nowrap ${filterBtnClass(selectedProductFilter === null)}`}
                   >
                     Todos ({results.length})
                   </button>
@@ -953,10 +961,7 @@ function App() {
                       <button
                         key={term}
                         onClick={() => setSelectedProductFilter(term)}
-                        className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border cursor-pointer whitespace-nowrap ${selectedProductFilter === term
-                          ? 'bg-purple-100 text-purple-800 border-purple-300 shadow-sm font-bold'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-origenow-purple hover:bg-purple-50'
-                          }`}
+                        className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border cursor-pointer whitespace-nowrap ${filterBtnClass(selectedProductFilter === term, 'font-bold')}`}
                       >
                         {term} ({count})
                       </button>
