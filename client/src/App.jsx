@@ -546,7 +546,8 @@ const FILTER_BTN_INACTIVE = 'bg-white text-gray-600 border-gray-200 hover:border
 const FILTER_BTN_ACTIVE_BASE = 'bg-purple-100 text-purple-800 border-purple-300 shadow-sm';
 
 function filterBtnClass(isActive, extraActive) {
-  return isActive ? `${FILTER_BTN_ACTIVE_BASE}${extraActive ? ` ${extraActive}` : ''}` : FILTER_BTN_INACTIVE;
+  if (!isActive) return FILTER_BTN_INACTIVE;
+  return extraActive ? `${FILTER_BTN_ACTIVE_BASE} ${extraActive}` : FILTER_BTN_ACTIVE_BASE;
 }
 
 function getEffectiveCount(selectedExportIds, tableSortedResults) {
