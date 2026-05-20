@@ -56,15 +56,24 @@ const ParticleCard = ({
 }) => {
     const cardRef = useRef(null);
     // ... (lines 57-270 omitted for brevity, logic remains same)
+    if (onClick) {
+        return (
+            <button
+                ref={cardRef}
+                type="button"
+                className={`${className} relative overflow-hidden`}
+                style={{ ...style, position: 'relative', overflow: 'hidden' }}
+                onClick={onClick}
+            >
+                {children}
+            </button>
+        );
+    }
     return (
         <div
             ref={cardRef}
             className={`${className} relative overflow-hidden`}
             style={{ ...style, position: 'relative', overflow: 'hidden' }}
-            onClick={onClick}
-            role={onClick ? 'button' : undefined}
-            tabIndex={onClick ? 0 : undefined}
-            onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick(e) : undefined}
         >
             {children}
         </div>

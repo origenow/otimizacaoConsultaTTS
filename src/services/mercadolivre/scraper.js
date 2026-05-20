@@ -99,7 +99,10 @@ export async function ifCatalog(catalogID, xsrf, csrf, d2id, proxyIterator) {
         agent = new https.Agent({ proxy: proxyUrl });
     }
 
-    let url = `https://www.mercadolivre.com.br/p/api/products/${encodeURIComponent(catalogID)}/s?page=1&quantity=1`;
+    const _catalogUrl = new URL(`/p/api/products/${encodeURIComponent(catalogID)}/s`, 'https://www.mercadolivre.com.br');
+    _catalogUrl.searchParams.set('page', '1');
+    _catalogUrl.searchParams.set('quantity', '1');
+    let url = _catalogUrl.toString();
     const fetchOptions = {
         method: 'GET',
         headers: {
@@ -190,7 +193,11 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
         agent = new https.Agent({ proxy: proxyUrl });
     }
 
-    let url = `https://produto.mercadolivre.com.br/p/api/items?id=${encodeURIComponent(itemID)}&platform=ML&app=vip`;
+    const _itemUrl = new URL('/p/api/items', 'https://produto.mercadolivre.com.br');
+    _itemUrl.searchParams.set('id', itemID);
+    _itemUrl.searchParams.set('platform', 'ML');
+    _itemUrl.searchParams.set('app', 'vip');
+    let url = _itemUrl.toString();
 
     const fetchOptions = {
         method: 'GET',
@@ -309,7 +316,7 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
 }
 
 export async function searchProducts(query, proxyIterator, accessToken) {
-    const queryPath = encodeURIComponent(query.trim().toLowerCase()).replace(/%20/g, '-');
+    const queryPath = encodeURIComponent(query.trim().toLowerCase()).replaceAll('%20', '-');
     const searchUrl = `https://lista.mercadolivre.com.br/${queryPath}`;
 
     // Obter headers de autenticação
@@ -340,7 +347,9 @@ export async function searchProducts(query, proxyIterator, accessToken) {
         requestOptions.agent = agent;
     }
 
-    let response = await fetch(`https://www.mercadolivre.com.br/api/search/client?url=${encodeURIComponent(searchUrl)}`, requestOptions)
+    const _searchApiUrl = new URL('/api/search/client', 'https://www.mercadolivre.com.br');
+    _searchApiUrl.searchParams.set('url', searchUrl);
+    let response = await fetch(_searchApiUrl.toString(), requestOptions)
         .then((response) => response.json())
         .then((result) => {
             return result;
@@ -354,7 +363,7 @@ export async function searchProducts(query, proxyIterator, accessToken) {
     const rootData = response.data || response;
 
     // Check for Login Redirect (Blocking)
-    if (rootData.login || (rootData.data && rootData.data.login)) {
+    if (rootData.login || rootData.data?.login) {
         console.error("❌ [ERRO CRÍTICO] O Mercado Livre redirecionou para o Login.");
         throw new Error('AUTH_EXPIRED');
     }
@@ -377,7 +386,7 @@ export async function searchProducts(query, proxyIterator, accessToken) {
         // Buscar informações do endpoint de produto (startTime, listingType, itemPrice, categoryId, title)
         const itemInfo = await ifTraditional(itemID, authHeaders.xsrf, authHeaders.csrf, authHeaders.d2id, proxyIterator, productID);
 
-        if (!itemInfo || !itemInfo.id) {
+        if (!itemInfo?.id) {
             return null;
         }
 

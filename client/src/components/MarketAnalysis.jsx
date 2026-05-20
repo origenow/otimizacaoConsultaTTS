@@ -510,13 +510,11 @@ function MarketConcentration({ results }) {
 
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm border-none"
             aria-label="Fechar"
             onClick={() => setShowModal(false)}
-            onKeyDown={(e) => e.key === 'Enter' && setShowModal(false)}
           />
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[85vh] flex flex-col relative z-50 overflow-hidden animate-fade-in-up">
             <div className="p-6 border-b border-gray-100 flex justify-between items-start bg-gray-50/50">

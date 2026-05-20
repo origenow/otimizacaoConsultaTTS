@@ -428,9 +428,9 @@ function sliceBalancedBraces(text, startIndex) {
  * ============================================================================
  */
 const SESSION_REGEX_ABS =
-    /https?:\/\/www\.mercadolivre\.com\.br\/publicar\/bomni\/([a-zA-Z0-9_-]+)\/item_data_form/i;
+    /https?:\/\/www\.mercadolivre\.com\.br\/publicar\/bomni\/([\w-]+)\/item_data_form/i;
 const SESSION_REGEX_REL =
-    /\/publicar\/bomni\/([a-zA-Z0-9_-]+)\/item_data_form/i;
+    /\/publicar\/bomni\/([\w-]+)\/item_data_form/i;
 
 function extractSessionFromLocation(location) {
     if (!location) return null;
@@ -639,7 +639,7 @@ async function getSessionIdAndCookies({ itemId, productId, cookieHeader }) {
     jar.updateFromResponse(res1.headers);
 
     let nextUrl = res1.headers.get("location");
-    if (nextUrl && nextUrl.startsWith("/")) {
+    if (nextUrl?.startsWith("/")) {
         nextUrl = `https://www.mercadolivre.com.br${nextUrl}`;
     }
 

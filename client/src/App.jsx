@@ -350,6 +350,29 @@ const fetchTerm = async (term, signal) => {
   }
 };
 
+function applyTableSort(tableSortBy, colKey, setTableSortBy, setTableSortDir, setTablePage) {
+  if (tableSortBy === colKey) {
+    setTableSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+  } else {
+    setTableSortBy(colKey);
+    setTableSortDir('asc');
+  }
+  setTablePage(1);
+}
+
+function useEscapeKey(showExportModal, selectedProduct, showAuthModal, setShowExportModal, setSelectedProduct, setShowAuthModal) {
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key !== 'Escape') return;
+      if (showExportModal) { setShowExportModal(false); return; }
+      if (selectedProduct) { setSelectedProduct(null); return; }
+      if (showAuthModal) setShowAuthModal(false);
+    };
+    globalThis.addEventListener('keydown', handler);
+    return () => globalThis.removeEventListener('keydown', handler);
+  }, [showExportModal, selectedProduct, showAuthModal, setShowExportModal, setSelectedProduct, setShowAuthModal]);
+}
+
 function App() {
   const [query, setQuery] = useState('');
   const searchInputRef = useRef(null);
@@ -563,16 +586,7 @@ function App() {
     return uniqueTableResults.slice(indexOfFirstItem, indexOfLastItem);
   }, [uniqueTableResults, tablePage, tableItemsPerPage]);
 
-  // Handle table header click sorting
-  const handleTableSort = (colKey) => {
-    if (tableSortBy === colKey) {
-      setTableSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setTableSortBy(colKey);
-      setTableSortDir('asc');
-    }
-    setTablePage(1);
-  };
+  const handleTableSort = (colKey) => applyTableSort(tableSortBy, colKey, setTableSortBy, setTableSortDir, setTablePage);
 
   // Reset pagination when data changes or sort changes
   useEffect(() => {
@@ -583,22 +597,7 @@ function App() {
     setTablePage(1);
   }, [filteredResults, tableItemsPerPage, tableSortBy, tableSortDir]);
 
-  // Global Escape key listener to close active modals or details drawers
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (showExportModal) {
-          setShowExportModal(false);
-        } else if (selectedProduct) {
-          setSelectedProduct(null);
-        } else if (showAuthModal) {
-          setShowAuthModal(false);
-        }
-      }
-    };
-    globalThis.addEventListener('keydown', handleKeyDown);
-    return () => globalThis.removeEventListener('keydown', handleKeyDown);
-  }, [showExportModal, selectedProduct, showAuthModal]);
+  useEscapeKey(showExportModal, selectedProduct, showAuthModal, setShowExportModal, setSelectedProduct, setShowAuthModal);
 
   // Dashboard calculations delegated to pure helper (S3776)
   const stats = useMemo(() => computeStats(filteredResults), [filteredResults]);
@@ -1806,8 +1805,6 @@ function App() {
           <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
             <div
               className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg animate-fade-in-up overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
