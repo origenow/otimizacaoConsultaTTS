@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import XLSX from 'xlsx-js-style';
 import MagicBento from './components/MagicBento';
@@ -9,6 +10,304 @@ import MarketAnalysis from './components/MarketAnalysis';
 import TermKPIs from './components/TermKPIs';
 import LoginPage from './components/LoginPage';
 import { API_URL } from './config';
+
+// Pure helper functions declared in outer scope to satisfy SonarQube major rules (S6478, S7721)
+const safeFloat = (val) => {
+  if (!val) return 999999;
+  const str = String(val).replaceAll(',', '.');
+  const num = Number.parseFloat(str);
+  return Number.isNaN(num) ? 999999 : num;
+};
+
+const isFull = (item) => {
+  return item.is_fulfillment === true || item.logistic_type === 'fulfillment';
+};
+
+const getProductStatus = (tts) => {
+  const val = Number.parseFloat(tts);
+  if (val <= 10) return {
+    id: 'status-hot',
+    label: 'Super Alta Demanda',
+    color: 'text-orange-600 bg-orange-50 hover:bg-orange-100',
+    icon: (
+      <svg className="w-5 h-5 animate-[bounce_1s_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7 0 01-2.343 5.657z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+      </svg>
+    )
+  };
+  if (val <= 30) return {
+    id: 'status-good',
+    label: 'Boa Performance',
+    color: 'text-green-600 bg-green-50 hover:bg-green-100',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+      </svg>
+    )
+  };
+  return {
+    id: 'status-slow',
+    label: 'Baixa Rotatividade',
+    color: 'text-gray-600 bg-gray-50 hover:bg-gray-100',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  };
+};
+
+const getProductBadges = (item) => {
+  const status = getProductStatus(item.tts);
+  const badges = [];
+
+  // Status Badge
+  badges.push({
+    type: 'status',
+    label: status.label,
+    color: status.color,
+    icon: status.icon
+  });
+
+  // Oportunidade
+  if ((item.offers?.length || 0) <= 5 && Number.parseFloat(item.tts) < 3) {
+    badges.push({
+      type: 'opportunity',
+      label: 'Oportunidade',
+      color: 'text-green-600 bg-green-50 hover:bg-green-100',
+      icon: (
+        <svg className="w-4 h-4 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      )
+    });
+  }
+
+  // Produto Arriscado
+  if (item.catalog_tts_avg) {
+    const diff = Math.abs(Number.parseFloat(item.tts) - item.catalog_tts_avg);
+    const percentDiff = (diff / item.catalog_tts_avg) * 100;
+    if (percentDiff > 50) {
+      badges.push({
+        type: 'risky',
+        label: 'Produto Arriscado',
+        color: 'text-red-600 bg-red-50 hover:bg-red-100',
+        icon: (
+          <svg className="w-4 h-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        )
+      });
+    }
+  }
+
+  // Concorrência Excessiva
+  if ((item.offers?.length || 0) > 15) {
+    badges.push({
+      type: 'competition',
+      label: 'Concorrência Alta',
+      color: 'text-orange-600 bg-orange-50 hover:bg-orange-100',
+      icon: (
+        <svg className="w-4 h-4 animate-[spin_3s_linear_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      )
+    });
+  }
+
+  // Badge 1P (Mercado Livre)
+  if (item.nickname && (item.nickname.toUpperCase().includes('MERCADOLIVRE') || item.nickname.toUpperCase().includes('MERCADO LIVRE'))) {
+    badges.push({
+      type: '1p',
+      label: '1P',
+      color: 'text-white bg-blue-600 hover:bg-blue-700 border border-yellow-400',
+      icon: (
+        <svg className="w-4 h-4 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      )
+    });
+  }
+
+  // Full
+  if (isFull(item)) {
+    badges.push({
+      type: 'full',
+      label: 'Full',
+      color: 'text-white bg-green-500 hover:bg-green-600',
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      )
+    });
+  }
+
+  return badges;
+};
+
+const getSpeedWidth = (tts) => {
+  const val = Number.parseFloat(tts);
+  if (!val) return '0%';
+  const percentage = Math.max(0, Math.min(100, ((720 - val) / 720) * 100));
+  return `${percentage}%`;
+};
+
+const SortArrow = ({ colKey, tableSortBy, tableSortDir }) => {
+  if (tableSortBy !== colKey) return <span className="ml-1 text-gray-300 group-hover/th:text-gray-400 transition-colors">↕</span>;
+  return tableSortDir === 'asc'
+    ? <span className="ml-1 text-origenow-purple">↑</span>
+    : <span className="ml-1 text-origenow-purple">↓</span>;
+};
+
+SortArrow.propTypes = {
+  colKey: PropTypes.string.isRequired,
+  tableSortBy: PropTypes.string.isRequired,
+  tableSortDir: PropTypes.string.isRequired,
+};
+
+const compareByField = (sortBy, a, b) => {
+  switch (sortBy) {
+    case 'price_asc':  return (a.price || 0) - (b.price || 0);
+    case 'price_desc': return (b.price || 0) - (a.price || 0);
+    case 'sales_desc': return (b.sales_quantity || 0) - (a.sales_quantity || 0);
+    case 'date_desc':  return new Date(b.startTime || 0) - new Date(a.startTime || 0);
+    default:           return safeFloat(a.tts) - safeFloat(b.tts);
+  }
+};
+
+const getTableVal = (item, key) => {
+  const map = {
+    id: item.id || '',
+    title: item.title || '',
+    price: item.price || 0,
+    nickname: item.nickname || '',
+    city: item.city || '',
+    state: item.state || '',
+    sales_quantity: item.sales_quantity || 0,
+    tts: safeFloat(item.tts),
+    metodo: item.metodo_calculo || '',
+    vendas_dia: item.vendas_1_dia || 0,
+    shipping: item.shipping_cost || 0,
+    fee: item.sale_fee_amount || 0,
+    transactions: item.seller_transactions || 0,
+    power_seller: item.power_seller_status || '',
+    level: item.level_id || '',
+    logistic: item.logistic_type || '',
+  };
+  return map[key] ?? '';
+};
+
+const compareTableRows = (a, b, sortBy, sortDir) => {
+  const valA = getTableVal(a, sortBy);
+  const valB = getTableVal(b, sortBy);
+  const cmp = typeof valA === 'number' && typeof valB === 'number'
+    ? valA - valB
+    : String(valA).localeCompare(String(valB), 'pt-BR', { numeric: true });
+  return sortDir === 'asc' ? cmp : -cmp;
+};
+
+const buildExcelWorkbook = ({ allCols, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query }) => {
+  const selectedCols = allCols.filter(col => exportColumns[col.k]);
+  if (!tableSortedResults.length || selectedCols.length === 0) return null;
+
+  const finalCols = exportSearchTerm
+    ? [...selectedCols, { k: 'search_query', header: 'TERMO DE BUSCA', width: 25, getValue: item => item.search_query || '' }]
+    : selectedCols;
+
+  const exportBase = selectedExportIds.size > 0
+    ? tableSortedResults.filter(item => selectedExportIds.has(item.id))
+    : tableSortedResults;
+
+  const rowLimit = exportRowLimit && Number(exportRowLimit) > 0 ? Number(exportRowLimit) : exportBase.length;
+  const dataToExport = exportBase.slice(0, rowLimit);
+  const headers = finalCols.map(col => col.header);
+  const data = dataToExport.map(item => finalCols.map(col => col.getValue(item)));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+
+  const headerStyle = {
+    font: { bold: true, color: { rgb: '000000' } },
+    fill: { fgColor: { rgb: 'EFEFEF' } },
+    border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } },
+  };
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let C = range.s.c; C <= range.e.c; ++C) {
+    const address = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (ws[address]) ws[address].s = headerStyle;
+  }
+  ws['!cols'] = selectedCols.map(col => ({ wch: col.width }));
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Dados Origenow');
+  const sanitizedQuery = query.replace(/[^a-zA-Z0-9]/g, '_') || 'dados';
+  XLSX.writeFile(wb, `origenow_${sanitizedQuery}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  return true;
+};
+
+const parseSearchTerms = (query) => {
+  if (!query || !query.trim()) return [];
+  return query.split(',')
+    .map(t => t.trim())
+    .map(t => t.replace(/[\\/|_\-+=]/g, ' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+};
+
+const fetchTerm = async (term, signal) => {
+  try {
+    const response = await fetch(`${API_URL}/api/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: term }),
+      signal,
+    });
+
+    if (response.status === 401) {
+      return { success: false, requiresAuth: true };
+    }
+
+    if (!response.ok) {
+      let serverMessage = '';
+      try {
+        const errBody = await response.json();
+        serverMessage = errBody.error || errBody.message || '';
+      } catch { /* response body wasn't JSON, ignore */ }
+
+      const statusMessages = {
+        400: `Requisição inválida. ${serverMessage || 'Verifique o termo de busca e tente novamente.'}`,
+        403: 'Acesso negado. Você não tem permissão para realizar esta busca.',
+        404: 'Serviço de busca não encontrado. A API pode estar temporariamente indisponível.',
+        429: 'Muitas requisições em pouco tempo. Aguarde alguns segundos e tente novamente.',
+        500: `Erro interno no servidor. ${serverMessage || 'A equipe técnica foi notificada. Tente novamente em alguns minutos.'}`,
+        502: 'O servidor está inicializando ou temporariamente fora do ar (502). Aguarde 1-2 minutos e tente novamente.',
+        503: 'Serviço indisponível (503). O servidor pode estar em manutenção. Tente novamente em alguns minutos.',
+        504: 'A requisição demorou demais para responder (timeout). Tente novamente com um termo de busca mais específico.',
+      };
+
+      const userMessage = statusMessages[response.status]
+        || `Erro inesperado (código ${response.status}). ${serverMessage || 'Tente novamente mais tarde.'}`;
+
+      return { success: false, error: `"${term}": ${userMessage}` };
+    }
+
+    const data = await response.json();
+    const taggedData = data.map(item => ({ ...item, search_query: term }));
+    return { success: true, data: taggedData };
+
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw err;
+    }
+    let userMessage = '';
+    if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+      userMessage = `"${term}": Não foi possível conectar ao servidor.`;
+    } else {
+      userMessage = `"${term}": ${err.message || 'Erro desconhecido.'}`;
+    }
+    return { success: false, error: userMessage };
+  }
+};
 
 function App() {
   const [query, setQuery] = useState('');
@@ -60,11 +359,7 @@ function App() {
     e?.preventDefault();
     if (!query.trim()) return;
 
-    // Separa múltiplos termos por vírgula, sanitiza caracteres especiais e remove espaços extras
-    const searchTerms = query.split(',')
-      .map(t => t.trim())
-      .map(t => t.replace(/[\\\/|_\-+=]/g, ' ').replace(/\s+/g, ' ').trim())
-      .filter(Boolean);
+    const searchTerms = parseSearchTerms(query);
     if (searchTerms.length === 0) return;
 
     setSearchTermsCount(searchTerms.length);
@@ -91,63 +386,26 @@ function App() {
       setSearchProgress(`Buscando ${i + 1} de ${searchTerms.length}: "${term}"...`);
 
       try {
-        const response = await fetch(`${API_URL}/api/search`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: term }),
-          signal: abortControllerRef.current.signal,
-        });
-
-        if (response.status === 401) {
+        const res = await fetchTerm(term, abortControllerRef.current.signal);
+        
+        if (res.requiresAuth) {
           setShowAuthModal(true);
           setLoading(false);
           setSearchProgress('');
           return;
         }
 
-        if (!response.ok) {
-          let serverMessage = '';
-          try {
-            const errBody = await response.json();
-            serverMessage = errBody.error || errBody.message || '';
-          } catch { /* response body wasn't JSON, ignore */ }
-
-          const statusMessages = {
-            400: `Requisição inválida. ${serverMessage || 'Verifique o termo de busca e tente novamente.'}`,
-            403: 'Acesso negado. Você não tem permissão para realizar esta busca.',
-            404: 'Serviço de busca não encontrado. A API pode estar temporariamente indisponível.',
-            429: 'Muitas requisições em pouco tempo. Aguarde alguns segundos e tente novamente.',
-            500: `Erro interno no servidor. ${serverMessage || 'A equipe técnica foi notificada. Tente novamente em alguns minutos.'}`,
-            502: 'O servidor está inicializando ou temporariamente fora do ar (502). Aguarde 1-2 minutos e tente novamente.',
-            503: 'Serviço indisponível (503). O servidor pode estar em manutenção. Tente novamente em alguns minutos.',
-            504: 'A requisição demorou demais para responder (timeout). Tente novamente com um termo de busca mais específico.',
-          };
-
-          const userMessage = statusMessages[response.status]
-            || `Erro inesperado (código ${response.status}). ${serverMessage || 'Tente novamente mais tarde.'}`;
-
-          errors.push(`"${term}": ${userMessage}`);
-          continue; // Pula para o próximo termo em vez de parar tudo
+        if (res.success) {
+          allResults.push(...res.data);
+        } else {
+          errors.push(res.error);
         }
-
-        const data = await response.json();
-        // Marca cada resultado com o termo de busca que o originou
-        const taggedData = data.map(item => ({ ...item, search_query: term }));
-        allResults.push(...taggedData);
-
-        // Atualiza resultados progressivamente (mostra resultados conforme chegam)
-
-
       } catch (err) {
         if (err.name === 'AbortError') {
           console.log('[Busca] Busca cancelada pelo usuário.');
-          return; // Para o loop completamente
+          return;
         }
-        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-          errors.push(`"${term}": Não foi possível conectar ao servidor.`);
-        } else {
-          errors.push(`"${term}": ${err.message || 'Erro desconhecido.'}`);
-        }
+        errors.push(`"${term}": ${err.message || 'Erro desconhecido.'}`);
         console.error(`[Busca] Erro ao buscar "${term}":`, err);
       }
     }
@@ -155,10 +413,8 @@ function App() {
     setResults([...allResults]);
 
     if (errors.length > 0 && allResults.length === 0) {
-      // Todos falharam
       setError(errors.join('\n'));
     } else if (errors.length > 0) {
-      // Alguns falharam, mas temos resultados parciais
       setError(`Algumas buscas falharam: ${errors.join(' | ')}`);
     }
 
@@ -242,72 +498,14 @@ function App() {
     setShowExportModal(true);
   };
 
-  // Export to Excel Function (uses modal selections)
+  // Export to Excel — delegates to pure helper buildExcelWorkbook
   const exportToExcel = () => {
-    if (!tableSortedResults.length) return;
-
-    // 1. Filter columns based on user selection
-    const selectedCols = allExportColumns.filter(col => exportColumns[col.k]);
-    if (selectedCols.length === 0) return;
-
-    // Add search term column at the end if requested
-    const finalCols = exportSearchTerm
-      ? [...selectedCols, { k: 'search_query', header: 'TERMO DE BUSCA', width: 25, getValue: item => item.search_query || '' }]
-      : selectedCols;
-
-    const headers = finalCols.map(col => col.header);
-
-    // 2. Apply filtering by selected rows and limit
-    // If user has specific items selected, use those. If not, use the current (filtered) table results.
-    const exportBase = selectedExportIds.size > 0
-      ? tableSortedResults.filter(item => selectedExportIds.has(item.id))
-      : tableSortedResults;
-
-    const rowLimit = exportRowLimit && Number(exportRowLimit) > 0 ? Number(exportRowLimit) : exportBase.length;
-    const dataToExport = exportBase.slice(0, rowLimit);
-
-    const data = dataToExport.map(item => finalCols.map(col => col.getValue(item)));
-
-    // 3. Create Workbook
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-
-    // 4. Style Headers
-    const headerStyle = {
-      font: { bold: true, color: { rgb: "000000" } },
-      fill: { fgColor: { rgb: "EFEFEF" } },
-      border: {
-        top: { style: 'thin' }, bottom: { style: 'thin' },
-        left: { style: 'thin' }, right: { style: 'thin' }
-      }
-    };
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const address = XLSX.utils.encode_cell({ r: 0, c: C });
-      if (!ws[address]) continue;
-      ws[address].s = headerStyle;
-    }
-
-    // 5. Set Column Widths
-    ws['!cols'] = selectedCols.map(col => ({ wch: col.width }));
-
-    // 6. Save File
-    XLSX.utils.book_append_sheet(wb, ws, "Dados Origenow");
-    const sanitizedQuery = query.replace(/[^a-zA-Z0-9]/g, '_') || 'dados';
-    XLSX.writeFile(wb, `origenow_${sanitizedQuery}_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    setShowExportModal(false);
+    const exported = buildExcelWorkbook({ allCols: allExportColumns, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query });
+    if (exported) setShowExportModal(false);
   };
 
   // Sorting state
   const [sortBy, setSortBy] = useState('tts_asc');
-
-  // Shared safe float parser
-  const safeFloat = (val) => {
-    if (!val) return 999999;
-    const str = String(val).replaceAll(',', '.');
-    const num = Number.parseFloat(str);
-    return Number.isNaN(num) ? 999999 : num;
-  };
 
   // Filtered results based on the search term filter menu
   const filteredResults = useMemo(() => {
@@ -322,65 +520,28 @@ function App() {
   }, [results]);
 
   // Sort results based on selected criteria
-  const sortedResults = useMemo(() => {
-    return [...filteredResults].sort((a, b) => {
-      switch (sortBy) {
-        case 'price_asc':
-          return (a.price || 0) - (b.price || 0);
-        case 'price_desc':
-          return (b.price || 0) - (a.price || 0);
-        case 'sales_desc':
-          return (b.sales_quantity || 0) - (a.sales_quantity || 0);
-        case 'date_desc':
-          return new Date(b.startTime || 0) - new Date(a.startTime || 0);
-        case 'tts_asc':
-        default:
-          return safeFloat(a.tts) - safeFloat(b.tts);
-      }
-    });
-  }, [filteredResults, sortBy]);
+  const sortedResults = useMemo(
+    () => [...filteredResults].sort((a, b) => compareByField(sortBy, a, b)),
+    [filteredResults, sortBy]
+  );
 
   // Table-specific sorted results (independent from cards)
   const tableSortedResults = useMemo(() => {
-    const getVal = (item, key) => {
-      const map = {
-        id: item.id || '',
-        title: item.title || '',
-        price: item.price || 0,
-        nickname: item.nickname || '',
-        city: item.city || '',
-        state: item.state || '',
-        sales_quantity: item.sales_quantity || 0,
-        tts: safeFloat(item.tts),
-        metodo: item.metodo_calculo || '',
-        vendas_dia: item.vendas_1_dia || 0,
-        shipping: item.shipping_cost || 0,
-        fee: item.sale_fee_amount || 0,
-        transactions: item.seller_transactions || 0,
-        power_seller: item.power_seller_status || '',
-        level: item.level_id || '',
-        logistic: item.logistic_type || '',
-      };
-      return map[key] ?? '';
-    };
-
-    let baseResults = filteredResults;
-    if (tableBadgeFilter && tableBadgeFilter !== 'Todos') {
-      baseResults = baseResults.filter(item => getProductBadges(item).some(b => b.label === tableBadgeFilter));
-    }
-
-    return [...baseResults].sort((a, b) => {
-      const valA = getVal(a, tableSortBy);
-      const valB = getVal(b, tableSortBy);
-      let cmp = 0;
-      if (typeof valA === 'number' && typeof valB === 'number') {
-        cmp = valA - valB;
-      } else {
-        cmp = String(valA).localeCompare(String(valB), 'pt-BR', { numeric: true });
-      }
-      return tableSortDir === 'asc' ? cmp : -cmp;
-    });
+    const baseResults = tableBadgeFilter && tableBadgeFilter !== 'Todos'
+      ? filteredResults.filter(item => getProductBadges(item).some(b => b.label === tableBadgeFilter))
+      : filteredResults;
+    return [...baseResults].sort((a, b) => compareTableRows(a, b, tableSortBy, tableSortDir));
   }, [filteredResults, tableSortBy, tableSortDir, tableBadgeFilter]);
+
+  const uniqueTableResults = useMemo(() => {
+    return Array.from(new Map(tableSortedResults.map(item => [item.id, item])).values());
+  }, [tableSortedResults]);
+
+  const currentTableItems = useMemo(() => {
+    const indexOfLastItem = tablePage * tableItemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - tableItemsPerPage;
+    return uniqueTableResults.slice(indexOfFirstItem, indexOfLastItem);
+  }, [uniqueTableResults, tablePage, tableItemsPerPage]);
 
   // Handle table header click sorting
   const handleTableSort = (colKey) => {
@@ -393,12 +554,6 @@ function App() {
     setTablePage(1);
   };
 
-  // Sort arrow component
-  const SortArrow = ({ colKey }) => {
-    if (tableSortBy !== colKey) return <span className="ml-1 text-gray-300 group-hover/th:text-gray-400 transition-colors">↕</span>;
-    return <span className="ml-1 text-origenow-purple">{tableSortDir === 'asc' ? '↑' : '↓'}</span>;
-  };
-
   // Reset pagination when data changes or sort changes
   useEffect(() => {
     setCurrentPage(1);
@@ -407,6 +562,23 @@ function App() {
   useEffect(() => {
     setTablePage(1);
   }, [filteredResults, tableItemsPerPage, tableSortBy, tableSortDir]);
+
+  // Global Escape key listener to close active modals or details drawers
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showExportModal) {
+          setShowExportModal(false);
+        } else if (selectedProduct) {
+          setSelectedProduct(null);
+        } else if (showAuthModal) {
+          setShowAuthModal(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showExportModal, selectedProduct, showAuthModal]);
 
   // Dashboard calculations (use filteredResults)
   const stats = useMemo(() => {
@@ -562,145 +734,10 @@ function App() {
     return cards;
   }, [stats]);
 
-  // Detecção robusta de fulfillment - combina campo novo (is_fulfillment) com fallback antigo (logistic_type)
-  function isFull(item) {
-    return item.is_fulfillment === true || item.logistic_type === 'fulfillment';
-  }
-
-  // Determine status (Hot/Slow) based on TTS - Refactored for Icons
-  function getProductStatus(tts) {
-    const val = Number.parseFloat(tts);
-    if (val <= 10) return {
-      id: 'status-hot',
-      label: 'Super Alta Demanda',
-      color: 'text-orange-600 bg-orange-50 hover:bg-orange-100',
-      icon: (
-        <svg className="w-5 h-5 animate-[bounce_1s_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7 0 01-2.343 5.657z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
-        </svg>
-      )
-    };
-    if (val <= 30) return {
-      id: 'status-good',
-      label: 'Boa Performance',
-      color: 'text-green-600 bg-green-50 hover:bg-green-100',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-        </svg>
-      )
-    };
-    return {
-      id: 'status-slow',
-      label: 'Baixa Rotatividade',
-      color: 'text-gray-600 bg-gray-50 hover:bg-gray-100',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      )
-    };
-  }
-
-  // Helper to generate badges for any item
-  function getProductBadges(item) {
-    const status = getProductStatus(item.tts);
-    const badges = [];
-
-    // Status Badge
-    badges.push({
-      type: 'status',
-      label: status.label,
-      color: status.color,
-      icon: status.icon
-    });
-
-    // Oportunidade
-    if ((item.offers?.length || 0) <= 5 && Number.parseFloat(item.tts) < 3) {
-      badges.push({
-        type: 'opportunity',
-        label: 'Oportunidade',
-        color: 'text-green-600 bg-green-50 hover:bg-green-100',
-        icon: (
-          <svg className="w-4 h-4 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-          </svg>
-        )
-      });
-    }
-
-    // Produto Arriscado
-    if (item.catalog_tts_avg) {
-      const diff = Math.abs(Number.parseFloat(item.tts) - item.catalog_tts_avg);
-      const percentDiff = (diff / item.catalog_tts_avg) * 100;
-      if (percentDiff > 50) {
-        badges.push({
-          type: 'risky',
-          label: 'Produto Arriscado',
-          color: 'text-red-600 bg-red-50 hover:bg-red-100',
-          icon: (
-            <svg className="w-4 h-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          )
-        });
-      }
-    }
-
-    // Concorrência Excessiva
-    if ((item.offers?.length || 0) > 15) {
-      badges.push({
-        type: 'competition',
-        label: 'Concorrência Alta',
-        color: 'text-orange-600 bg-orange-50 hover:bg-orange-100',
-        icon: (
-          <svg className="w-4 h-4 animate-[spin_3s_linear_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857m0 0a5.002 5 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        )
-      });
-    }
-
-    // Badge 1P (Mercado Livre)
-    if (item.nickname && (item.nickname.toUpperCase().includes('MERCADOLIVRE') || item.nickname.toUpperCase().includes('MERCADO LIVRE'))) {
-      badges.push({
-        type: '1p',
-        label: '1P',
-        color: 'text-white bg-blue-600 hover:bg-blue-700 border border-yellow-400',
-        icon: (
-          <svg className="w-4 h-4 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-        )
-      });
-    }
-
-    // Full
-    if (isFull(item)) {
-      badges.push({
-        type: 'full',
-        label: 'Full',
-        color: 'text-white bg-green-500 hover:bg-green-600',
-        icon: (
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        )
-      });
-    }
-
-    return badges;
-  }
-
-  // Calculate speed ruler width (inverse of TTS, max 720 hours/30 days reference)
-  function getSpeedWidth(tts) {
-    const val = Number.parseFloat(tts);
-    if (!val) return '0%';
-    // Assuming 720 hours (30 days) is "slowest" (0%) and 0 hours is "fastest" (100%)
-    const percentage = Math.max(0, Math.min(100, ((720 - val) / 720) * 100));
-    return `${percentage}%`;
-  }
+  const effectiveCount = selectedExportIds.size > 0 ? selectedExportIds.size : tableSortedResults.length;
+  const exportLabel = exportRowLimit && Number(exportRowLimit) > 0
+    ? `${Math.min(Number(exportRowLimit), effectiveCount)} linhas`
+    : `${effectiveCount} linhas`;
 
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;
@@ -770,8 +807,8 @@ function App() {
                   >
                     {loading ? (
                       <>
-                        <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                        Cancelar
+                        <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>{' '}
+                        <span>Cancelar</span>
                       </>
                     ) : 'Buscar'}
                   </button>
@@ -868,16 +905,16 @@ function App() {
               <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-b pb-2">Dicas para melhorar sua busca:</h4>
               <ul className="space-y-3 text-sm text-gray-600">
                 <li className="flex items-start gap-3">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  Verifique se há erros de digitação.
+                  <span className="text-green-500 mt-0.5">✓</span>{' '}
+                  <span>Verifique se há erros de digitação.</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  Tente usar termos mais genéricos (ex: "celular" em vez de "iphone 15 pro max 256gb azul").
+                  <span className="text-green-500 mt-0.5">✓</span>{' '}
+                  <span>Tente usar termos mais genéricos (ex: "celular" em vez de "iphone 15 pro max 256gb azul").</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  Navegue por categorias diferentes.
+                  <span className="text-green-500 mt-0.5">✓</span>{' '}
+                  <span>Navegue por categorias diferentes.</span>
                 </li>
               </ul>
             </div>
@@ -1052,8 +1089,8 @@ function App() {
                               <div className="p-5 flex items-start gap-4 border-b border-gray-50 bg-gradient-to-br from-white to-gray-50/50 rounded-t-2xl">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex flex-wrap gap-2 mb-3">
-                                    {badges.map((badge, idx) => (
-                                      <div key={idx} className={`group/icon relative inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors cursor-help ${badge.color}`}>
+                                    {badges.map((badge) => (
+                                      <div key={badge.type} className={`group/icon relative inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors cursor-help ${badge.color}`}>
                                         {badge.icon}
                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg shadow-xl opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
                                           {badge.label}
@@ -1280,8 +1317,9 @@ function App() {
                                   { k: 'logistic', l: 'Logística' },
                                   { k: 'link', l: 'Link' }, { k: 'transactions', l: 'Total Vendas' }, { k: 'power_seller', l: 'Status' }, { k: 'level', l: 'Nível' }
                                 ].map(({ k, l }) => (
-                                  <label key={k} className="flex items-center gap-3 text-sm text-gray-600 cursor-pointer hover:bg-purple-50 p-2 rounded-lg transition-colors select-none">
+                                  <label key={k} htmlFor={`vis-col-${k}`} className="flex items-center gap-3 text-sm text-gray-600 cursor-pointer hover:bg-purple-50 p-2 rounded-lg transition-colors select-none">
                                     <input
+                                      id={`vis-col-${k}`}
                                       type="checkbox"
                                       checked={visibleColumns[k]}
                                       onChange={() => setVisibleColumns(prev => ({ ...prev, [k]: !prev[k] }))}
@@ -1320,35 +1358,30 @@ function App() {
                                 title="Selecionar todos visíveis"
                               />
                             </th>
-                            {visibleColumns.id && <th scope="col" onClick={() => handleTableSort('id')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">ID<SortArrow colKey="id" /></th>}
-                            {visibleColumns.title && <th scope="col" onClick={() => handleTableSort('title')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Título<SortArrow colKey="title" /></th>}
-                            {visibleColumns.price && <th scope="col" onClick={() => handleTableSort('price')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Preço<SortArrow colKey="price" /></th>}
-                            {visibleColumns.nickname && <th scope="col" onClick={() => handleTableSort('nickname')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Vendedor<SortArrow colKey="nickname" /></th>}
-                            {visibleColumns.city && <th scope="col" onClick={() => handleTableSort('city')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Cidade<SortArrow colKey="city" /></th>}
-                            {visibleColumns.state && <th scope="col" onClick={() => handleTableSort('state')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Estado<SortArrow colKey="state" /></th>}
-                            {visibleColumns.sales_quantity && <th scope="col" onClick={() => handleTableSort('sales_quantity')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Vendas<SortArrow colKey="sales_quantity" /></th>}
-                            {visibleColumns.tts && <th scope="col" onClick={() => handleTableSort('tts')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">TTS<SortArrow colKey="tts" /></th>}
-                            {visibleColumns.metodo && <th scope="col" onClick={() => handleTableSort('metodo')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Método<SortArrow colKey="metodo" /></th>}
-                            {visibleColumns.vendas_dia && <th scope="col" onClick={() => handleTableSort('vendas_dia')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Vendas/Dia<SortArrow colKey="vendas_dia" /></th>}
-                            {visibleColumns.shipping && <th scope="col" onClick={() => handleTableSort('shipping')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Frete<SortArrow colKey="shipping" /></th>}
-                            {visibleColumns.fee && <th scope="col" onClick={() => handleTableSort('fee')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Taxa<SortArrow colKey="fee" /></th>}
-                            {visibleColumns.logistic && <th scope="col" onClick={() => handleTableSort('logistic')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Logística<SortArrow colKey="logistic" /></th>}
+                            {visibleColumns.id && <th scope="col" onClick={() => handleTableSort('id')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">ID<SortArrow colKey="id" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.title && <th scope="col" onClick={() => handleTableSort('title')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Título<SortArrow colKey="title" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.price && <th scope="col" onClick={() => handleTableSort('price')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Preço<SortArrow colKey="price" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.nickname && <th scope="col" onClick={() => handleTableSort('nickname')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Vendedor<SortArrow colKey="nickname" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.city && <th scope="col" onClick={() => handleTableSort('city')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Cidade<SortArrow colKey="city" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.state && <th scope="col" onClick={() => handleTableSort('state')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Estado<SortArrow colKey="state" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.sales_quantity && <th scope="col" onClick={() => handleTableSort('sales_quantity')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Vendas<SortArrow colKey="sales_quantity" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.tts && <th scope="col" onClick={() => handleTableSort('tts')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">TTS<SortArrow colKey="tts" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.metodo && <th scope="col" onClick={() => handleTableSort('metodo')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Método<SortArrow colKey="metodo" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.vendas_dia && <th scope="col" onClick={() => handleTableSort('vendas_dia')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Vendas/Dia<SortArrow colKey="vendas_dia" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.shipping && <th scope="col" onClick={() => handleTableSort('shipping')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Frete<SortArrow colKey="shipping" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.fee && <th scope="col" onClick={() => handleTableSort('fee')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Taxa<SortArrow colKey="fee" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.logistic && <th scope="col" onClick={() => handleTableSort('logistic')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Logística<SortArrow colKey="logistic" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
                             {visibleColumns.link && <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap">Link</th>}
-                            {visibleColumns.transactions && <th scope="col" onClick={() => handleTableSort('transactions')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Total Vendas<SortArrow colKey="transactions" /></th>}
-                            {visibleColumns.power_seller && <th scope="col" onClick={() => handleTableSort('power_seller')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Status<SortArrow colKey="power_seller" /></th>}
-                            {visibleColumns.level && <th scope="col" onClick={() => handleTableSort('level')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none last:rounded-tr-2xl">Nível<SortArrow colKey="level" /></th>}
+                            {visibleColumns.transactions && <th scope="col" onClick={() => handleTableSort('transactions')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Total Vendas<SortArrow colKey="transactions" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.power_seller && <th scope="col" onClick={() => handleTableSort('power_seller')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none">Status<SortArrow colKey="power_seller" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
+                            {visibleColumns.level && <th scope="col" onClick={() => handleTableSort('level')} className="group/th px-6 py-4 text-left text-xs font-bold text-origenow-purple uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-purple-50 transition-colors select-none last:rounded-tr-2xl">Nível<SortArrow colKey="level" tableSortBy={tableSortBy} tableSortDir={tableSortDir} /></th>}
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100 text-sm">
-                          {(() => {
-                            const uniqueResults = Array.from(new Map(tableSortedResults.map(item => [item.id, item])).values());
-                            const indexOfLastItem = tablePage * tableItemsPerPage;
-                            const indexOfFirstItem = indexOfLastItem - tableItemsPerPage;
-                            const currentTableItems = uniqueResults.slice(indexOfFirstItem, indexOfLastItem);
-
-                            if (currentTableItems.length === 0) return <tr><td colSpan="100%" className="text-center py-8 text-gray-400">Nenhum dado visível</td></tr>;
-
-                            return currentTableItems.map((item) => (
+                          {currentTableItems.length === 0 ? (
+                            <tr><td colSpan="100%" className="text-center py-8 text-gray-400">Nenhum dado visível</td></tr>
+                          ) : (
+                            currentTableItems.map((item) => (
                               <tr key={item.id} onClick={() => setSelectedProduct(item)} className={`cursor-pointer transition-colors duration-200 group border-l-4 ${selectedProduct?.id === item.id ? 'bg-purple-50 border-origenow-purple shadow-inner' : 'hover:bg-purple-50/40 border-transparent hover:border-origenow-purple'}`}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={(e) => e.stopPropagation()}>
                                   <input
@@ -1458,18 +1491,18 @@ function App() {
 
                                 {visibleColumns.level && <td className="px-6 py-4 whitespace-nowrap text-gray-500 text-xs">{item.level_id || '-'}</td>}
                               </tr>
-                            ));
-                          })()}
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
 
                     {/* Table Pagination Controls */}
                     {(() => {
-                      const uniqueResultsCount = new Set(tableSortedResults.map(i => i.id)).size;
+                      const uniqueResultsCount = uniqueTableResults.length;
                       const totalTablePages = Math.ceil(uniqueResultsCount / tableItemsPerPage);
 
-                      if (uniqueResultsCount <= tableItemsPerPage) return null;
+                      if (uniqueResultsCount <= tableItemsPerPage) return <></> ;
 
                       return (
                         <div className="mt-8 flex justify-center gap-2">
@@ -1565,8 +1598,8 @@ function App() {
                     <div className="text-xs font-mono text-gray-400 mb-1">{selectedProduct.id}</div>
                     <h2 className="text-lg font-bold text-gray-900 leading-snug line-clamp-3 mb-2">{selectedProduct.title}</h2>
                     <div className="flex flex-wrap gap-2">
-                      {getProductBadges(selectedProduct).map((badge, idx) => (
-                        <span key={idx} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-bold ${badge.color}`}>
+                      {getProductBadges(selectedProduct).map((badge) => (
+                        <span key={badge.type} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-bold ${badge.color}`}>
                           {badge.icon}
                           {badge.label}
                         </span>
@@ -1636,7 +1669,7 @@ function App() {
                 {/* Badge Explanations Block */}
                 {(() => {
                   const activeBadges = getProductBadges(selectedProduct);
-                  if (activeBadges.length === 0) return null;
+                  if (activeBadges.length === 0) return <></> ;
 
                   const badgeExplanations = {
                     'Super Alta Demanda': 'Produto vendendo a cada 10 horas ou menos.',
@@ -1656,10 +1689,10 @@ function App() {
                         <span className="text-xl">🏷️</span> Entenda as Badges
                       </div>
                       <div className="divide-y divide-gray-100">
-                        {activeBadges.map((badge, idx) => {
+                        {activeBadges.map((badge) => {
                           const explanation = badgeExplanations[badge.label] || Object.keys(badgeExplanations).find(k => badge.label.includes(k) && badgeExplanations[k]) || 'Indicador de performance do produto.';
                           return (
-                            <div key={idx} className="p-4 flex gap-4 items-start">
+                            <div key={badge.type} className="p-4 flex gap-4 items-start">
                               <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${badge.color}`}>
                                 {badge.icon}
                               </div>
@@ -1734,10 +1767,15 @@ function App() {
         {/* Overlay */}
         {
           selectedProduct && (
-            <div role="button" tabIndex={0} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setSelectedProduct(null)} onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') setSelectedProduct(null); }}></div>
+            <button
+              type="button"
+              aria-label="Fechar detalhes do produto"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity border-none w-full h-full cursor-default outline-none"
+              onClick={() => setSelectedProduct(null)}
+            />
           )
         }
-      </div >
+      </div>
 
       {/* Footer */}
       <footer className="fixed bottom-0 left-0 right-0 z-40 w-full text-center py-4 text-gray-500 text-sm border-t border-purple-100/50 bg-white/80 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
@@ -1759,8 +1797,10 @@ function App() {
       {/* Export Excel Configuration Modal */}
       {showExportModal && (
         <>
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] transition-opacity"
+          <button
+            type="button"
+            aria-label="Fechar modal de exportação"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] transition-opacity border-none w-full h-full cursor-default outline-none"
             onClick={() => setShowExportModal(false)}
           />
           <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
@@ -1791,9 +1831,10 @@ function App() {
               <div className="px-6 py-5 space-y-5 max-h-[60vh] overflow-y-auto custom-scrollbar">
                 {/* Row Limit */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Quantidade de linhas</label>
+                  <label htmlFor="export-row-limit" className="block text-sm font-bold text-gray-700 mb-2">Quantidade de linhas</label>
                   <div className="flex items-center gap-3">
                     <input
+                      id="export-row-limit"
                       type="number"
                       min={1}
                       max={sortedResults.length}
@@ -1827,7 +1868,7 @@ function App() {
                 {/* Column Selection */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <label className="text-sm font-bold text-gray-700">Colunas para exportar</label>
+                    <p className="text-sm font-bold text-gray-700">Colunas para exportar</p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setExportColumns(Object.fromEntries(allExportColumns.map(c => [c.k, true])))}
@@ -1848,9 +1889,11 @@ function App() {
                     {allExportColumns.map(({ k, l }) => (
                       <label
                         key={k}
+                        htmlFor={`exp-col-${k}`}
                         className="flex items-center gap-3 text-sm text-gray-600 cursor-pointer hover:bg-purple-50 p-2.5 rounded-lg transition-colors select-none"
                       >
                         <input
+                          id={`exp-col-${k}`}
                           type="checkbox"
                           checked={!!exportColumns[k]}
                           onChange={() => setExportColumns(prev => ({ ...prev, [k]: !prev[k] }))}
@@ -1880,7 +1923,7 @@ function App() {
                   className="px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-xl shadow-md shadow-green-500/20 hover:shadow-lg hover:shadow-green-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                  Exportar {exportRowLimit && Number(exportRowLimit) > 0 ? `${Math.min(Number(exportRowLimit), selectedExportIds.size > 0 ? selectedExportIds.size : tableSortedResults.length)} linhas` : `${selectedExportIds.size > 0 ? selectedExportIds.size : tableSortedResults.length} linhas`}
+                  Exportar {exportLabel}
                 </button>
               </div>
             </div>

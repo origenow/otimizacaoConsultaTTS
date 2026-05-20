@@ -68,6 +68,19 @@ const ParticleCard = ({
     );
 };
 
+ParticleCard.propTypes = {
+    children: PropTypes.node,
+    className: PropTypes.string,
+    disableAnimations: PropTypes.bool,
+    style: PropTypes.object,
+    particleCount: PropTypes.number,
+    glowColor: PropTypes.string,
+    enableTilt: PropTypes.bool,
+    clickEffect: PropTypes.bool,
+    enableMagnetism: PropTypes.bool,
+    onClick: PropTypes.func
+};
+
 const GlobalSpotlight = ({
     gridRef,
     disableAnimations = false,
@@ -200,6 +213,14 @@ const GlobalSpotlight = ({
     return null;
 };
 
+GlobalSpotlight.propTypes = {
+    gridRef: PropTypes.oneOfType([PropTypes.func, PropTypes.shape({ current: PropTypes.any })]).isRequired,
+    disableAnimations: PropTypes.bool,
+    enabled: PropTypes.bool,
+    spotlightRadius: PropTypes.number,
+    glowColor: PropTypes.string
+};
+
 const BentoCardGrid = ({ children, gridRef }) => (
     <div
         className="bento-section grid gap-2 p-3 w-full select-none relative"
@@ -209,6 +230,11 @@ const BentoCardGrid = ({ children, gridRef }) => (
         {children}
     </div>
 );
+
+BentoCardGrid.propTypes = {
+    children: PropTypes.node,
+    gridRef: PropTypes.oneOfType([PropTypes.func, PropTypes.shape({ current: PropTypes.any })])
+};
 
 const useMobileDetection = () => {
     const [isMobile, setIsMobile] = useState(false);
@@ -412,7 +438,7 @@ const MagicBento = ({
                         if (enableStars) {
                             return (
                                 <ParticleCard
-                                    key={index}
+                                    key={card.id ?? index}
                                     className={baseClassName}
                                     style={cardStyle}
                                     disableAnimations={shouldDisableAnimations}
@@ -447,7 +473,7 @@ const MagicBento = ({
 
                         return (
                             <div
-                                key={index}
+                                key={card.id ?? index}
                                 className={baseClassName}
                                 style={cardStyle}
                                 ref={el => {

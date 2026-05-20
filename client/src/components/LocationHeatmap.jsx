@@ -58,8 +58,8 @@ function LocationHeatmap({ results }) {
                     <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                         <span className="p-2 bg-purple-100 text-origenow-purple rounded-lg">
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0121 18.382V7.618a1 1 0 00-.553-.894L15 7m0 13V7" /></svg>
-                        </span>
-                        Mapa de Calor de Vendedores
+                        </span>{' '}
+                        <span>Mapa de Calor de Vendedores</span>
                     </h3>
                     <p className="text-gray-500 mt-1 ml-1 text-sm">Visualização geográfica da localização dos estoques.</p>
                 </div>
@@ -151,9 +151,13 @@ function LocationHeatmap({ results }) {
                             return (
                                 <div
                                     key={code}
-                                    className="group flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition-all cursor-pointer"
+                                    tabIndex={0}
+                                    role="listitem"
+                                    className="group flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition-all cursor-pointer focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
                                     onMouseEnter={() => setHoveredState(code)}
                                     onMouseLeave={() => setHoveredState(null)}
+                                    onFocus={() => setHoveredState(code)}
+                                    onBlur={() => setHoveredState(null)}
                                 >
                                     <div className={`
                                         w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 border
