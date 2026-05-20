@@ -542,6 +542,34 @@ async function executeSearch(query, abortControllerRef, setters) {
   abortControllerRef.current = null;
 }
 
+function filterResultsByTerm(results, selectedProductFilter) {
+  if (!selectedProductFilter) return results;
+  return results.filter(r => r.search_query === selectedProductFilter);
+}
+
+function buildExportLabel(exportRowLimit, effectiveCount) {
+  if (exportRowLimit && Number(exportRowLimit) > 0) {
+    return `${Math.min(Number(exportRowLimit), effectiveCount)} linhas`;
+  }
+  return `${effectiveCount} linhas`;
+}
+
+function triggerExcelExport(allCols, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query, setShowExportModal) {
+  const exported = buildExcelWorkbook({ allCols, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query });
+  if (exported) setShowExportModal(false);
+}
+
+async function updateCookie(newSsid, apiUrl, setShowAuthModal, retrySearch) {
+  const response = await fetch(`${apiUrl}/api/settings/ssid`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ssid: newSsid }),
+  });
+  if (!response.ok) throw new Error('Falha ao atualizar config');
+  setShowAuthModal(false);
+  retrySearch(null);
+}
+
 function useEscapeKey(showExportModal, selectedProduct, showAuthModal, setShowExportModal, setSelectedProduct, setShowAuthModal) {
   useEffect(() => {
     const handler = (e) => {
@@ -613,22 +641,7 @@ function App() {
 
   const handleCancelSearch = () => cancelSearch(abortControllerRef, results, { setLoading, setSearchProgress, setHasSearched });
 
-  const handleUpdateCookie = async (newSsid) => {
-    const response = await fetch(`${API_URL}/api/settings/ssid`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ssid: newSsid }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Falha ao atualizar config');
-    }
-
-    // Success
-    setShowAuthModal(false);
-    // Retry search automatically
-    handleSearch(null);
-  };
+  const handleUpdateCookie = (newSsid) => updateCookie(newSsid, API_URL, setShowAuthModal, handleSearch);
 
   const handleLogin = () => {
     localStorage.setItem('isLoggedIn', 'true');
@@ -676,19 +689,13 @@ function App() {
   };
 
   // Export to Excel — delegates to pure helper buildExcelWorkbook
-  const exportToExcel = () => {
-    const exported = buildExcelWorkbook({ allCols: allExportColumns, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query });
-    if (exported) setShowExportModal(false);
-  };
+  const exportToExcel = () => triggerExcelExport(allExportColumns, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query, setShowExportModal);
 
   // Sorting state
   const [sortBy, setSortBy] = useState('tts_asc');
 
   // Filtered results based on the search term filter menu
-  const filteredResults = useMemo(() => {
-    if (!selectedProductFilter) return results;
-    return results.filter(r => r.search_query === selectedProductFilter);
-  }, [results, selectedProductFilter]);
+  const filteredResults = useMemo(() => filterResultsByTerm(results, selectedProductFilter), [results, selectedProductFilter]);
 
   // Unique search terms for the filter menu
   const uniqueSearchTerms = useMemo(() => {
@@ -704,9 +711,9 @@ function App() {
 
   // Table-specific sorted results (independent from cards)
   const tableSortedResults = useMemo(() => {
-    const baseResults = tableBadgeFilter !== 'Todos'
-      ? filteredResults.filter(item => getProductBadges(item).some(b => b.label === tableBadgeFilter))
-      : filteredResults;
+    const baseResults = tableBadgeFilter === 'Todos'
+      ? filteredResults
+      : filteredResults.filter(item => getProductBadges(item).some(b => b.label === tableBadgeFilter));
     return [...baseResults].sort((a, b) => compareTableRows(a, b, tableSortBy, tableSortDir));
   }, [filteredResults, tableSortBy, tableSortDir, tableBadgeFilter]);
 
@@ -740,9 +747,7 @@ function App() {
   const statsCards = useMemo(() => buildStatsCards(stats, setSelectedProduct), [stats, setSelectedProduct]);
 
   const effectiveCount = selectedExportIds.size > 0 ? selectedExportIds.size : tableSortedResults.length;
-  const exportLabel = exportRowLimit && Number(exportRowLimit) > 0
-    ? `${Math.min(Number(exportRowLimit), effectiveCount)} linhas`
-    : `${effectiveCount} linhas`;
+  const exportLabel = buildExportLabel(exportRowLimit, effectiveCount);
 
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;
