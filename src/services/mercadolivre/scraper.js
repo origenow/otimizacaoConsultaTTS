@@ -10,6 +10,18 @@ import { calcularMediaVendasPorDia } from '../../utils/calculations.js';
 const catalogCache = new Map();
 const itemCache = new Map();
 
+const ALLOWED_ML_HOSTS = new Set([
+    'www.mercadolivre.com.br',
+    'produto.mercadolivre.com.br',
+    'lista.mercadolivre.com.br',
+]);
+
+function assertMeliHost(urlString) {
+    const { hostname } = new URL(urlString);
+    if (!ALLOWED_ML_HOSTS.has(hostname)) throw new Error(`Blocked host: ${hostname}`);
+    return urlString;
+}
+
 function findAttribute(data, ids = [], labels = []) {
     const stack = [data];
 
@@ -119,7 +131,7 @@ export async function ifCatalog(catalogID, xsrf, csrf, d2id, proxyIterator) {
         fetchOptions.agent = agent;
     }
 
-    let response = await fetch(url, fetchOptions);
+    let response = await fetch(assertMeliHost(url), fetchOptions);
     let data = await response.json();
 
 
@@ -215,7 +227,7 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
         fetchOptions.agent = agent;
     }
 
-    let response = await fetch(url, fetchOptions);
+    let response = await fetch(assertMeliHost(url), fetchOptions);
     let data = await response.json();
 
     const subtitle = data.components?.header?.subtitle || '';
@@ -349,7 +361,7 @@ export async function searchProducts(query, proxyIterator, accessToken) {
 
     const _searchApiUrl = new URL('/api/search/client', 'https://www.mercadolivre.com.br');
     _searchApiUrl.searchParams.set('url', searchUrl);
-    let response = await fetch(_searchApiUrl.toString(), requestOptions)
+    let response = await fetch(assertMeliHost(_searchApiUrl.toString()), requestOptions)
         .then((response) => response.json())
         .then((result) => {
             return result;

@@ -360,6 +360,56 @@ function applyTableSort(tableSortBy, colKey, setTableSortBy, setTableSortDir, se
   setTablePage(1);
 }
 
+async function executeSearch(query, abortControllerRef, setters) {
+  const {
+    setCurrentSearchIndex, setSearchProgress, setLoading, setError, setResults,
+    setShowAuthModal, setSelectedProduct, setSelectedProductFilter,
+    setCurrentPage, setTablePage, setHasSearched, setSearchTermsCount,
+  } = setters;
+
+  const searchTerms = parseSearchTerms(query);
+  if (searchTerms.length === 0) return;
+
+  setSearchTermsCount(searchTerms.length);
+  setCurrentSearchIndex(0);
+  setLoading(true);
+  setError(null);
+  setResults([]);
+  setSelectedProduct(null);
+  setSelectedProductFilter(null);
+  setCurrentPage(1);
+  setTablePage(1);
+  setHasSearched(true);
+  setSearchProgress('');
+
+  abortControllerRef.current = new AbortController();
+  const outcome = await runSearchTerms(searchTerms, abortControllerRef.current.signal, setCurrentSearchIndex, setSearchProgress);
+
+  if (outcome.requiresAuth) {
+    setShowAuthModal(true);
+    setLoading(false);
+    setSearchProgress('');
+    return;
+  }
+  if (outcome.aborted) {
+    console.log('[Busca] Busca cancelada pelo usuário.');
+    return;
+  }
+
+  const { allResults, errors } = outcome;
+  setResults([...allResults]);
+
+  if (errors.length > 0 && allResults.length === 0) {
+    setError(errors.join('\n'));
+  } else if (errors.length > 0) {
+    setError(`Algumas buscas falharam: ${errors.join(' | ')}`);
+  }
+
+  setSearchProgress('');
+  setLoading(false);
+  abortControllerRef.current = null;
+}
+
 function useEscapeKey(showExportModal, selectedProduct, showAuthModal, setShowExportModal, setSelectedProduct, setShowAuthModal) {
   useEffect(() => {
     const handler = (e) => {
@@ -422,48 +472,11 @@ function App() {
   const handleSearch = async (e) => {
     e?.preventDefault();
     if (!query.trim()) return;
-
-    const searchTerms = parseSearchTerms(query);
-    if (searchTerms.length === 0) return;
-
-    setSearchTermsCount(searchTerms.length);
-    setCurrentSearchIndex(0);
-    setLoading(true);
-    setError(null);
-    setResults([]);
-    setSelectedProduct(null);
-    setSelectedProductFilter(null);
-    setCurrentPage(1);
-    setTablePage(1);
-    setHasSearched(true);
-    setSearchProgress('');
-
-    abortControllerRef.current = new AbortController();
-    const outcome = await runSearchTerms(searchTerms, abortControllerRef.current.signal, setCurrentSearchIndex, setSearchProgress);
-
-    if (outcome.requiresAuth) {
-      setShowAuthModal(true);
-      setLoading(false);
-      setSearchProgress('');
-      return;
-    }
-    if (outcome.aborted) {
-      console.log('[Busca] Busca cancelada pelo usuário.');
-      return;
-    }
-
-    const { allResults, errors } = outcome;
-    setResults([...allResults]);
-
-    if (errors.length > 0 && allResults.length === 0) {
-      setError(errors.join('\n'));
-    } else if (errors.length > 0) {
-      setError(`Algumas buscas falharam: ${errors.join(' | ')}`);
-    }
-
-    setSearchProgress('');
-    setLoading(false);
-    abortControllerRef.current = null;
+    await executeSearch(query, abortControllerRef, {
+      setCurrentSearchIndex, setSearchProgress, setLoading, setError, setResults,
+      setShowAuthModal, setSelectedProduct, setSelectedProductFilter,
+      setCurrentPage, setTablePage, setHasSearched, setSearchTermsCount,
+    });
   };
 
   const handleCancelSearch = () => {
