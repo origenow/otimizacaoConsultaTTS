@@ -542,6 +542,26 @@ async function executeSearch(query, abortControllerRef, setters) {
   abortControllerRef.current = null;
 }
 
+const ALL_EXPORT_COLUMNS = [
+  { k: 'id', l: 'ID', header: 'ID', width: 15, getValue: item => item.id },
+  { k: 'title', l: 'Título', header: 'TÍTULO', width: 40, getValue: item => item.title || '' },
+  { k: 'price', l: 'Preço', header: 'PREÇO (R$)', width: 12, getValue: item => item.price || 0 },
+  { k: 'nickname', l: 'Vendedor', header: 'VENDEDOR', width: 20, getValue: item => item.nickname },
+  { k: 'city', l: 'Cidade', header: 'CIDADE', width: 15, getValue: item => item.city },
+  { k: 'state', l: 'Estado', header: 'ESTADO', width: 10, getValue: item => item.state },
+  { k: 'sales_quantity', l: 'Vendas Totais', header: 'VENDAS TOTAIS', width: 15, getValue: item => item.sales_quantity },
+  { k: 'tts', l: 'TTS (h/venda)', header: 'TTS (HORAS/VENDA)', width: 20, getValue: item => item.tts || 0 },
+  { k: 'metodo', l: 'Método Cálculo', header: 'MÉTODO CÁLCULO', width: 15, getValue: item => item.metodo_calculo },
+  { k: 'vendas_dia', l: 'Velocidade (vendas/dia)', header: 'VELOCIDADE (VENDAS/DIA)', width: 20, getValue: item => item.velocity || 0 },
+  { k: 'shipping', l: 'Custo Frete', header: 'CUSTO FRETE', width: 15, getValue: item => item.shipping_cost || 0 },
+  { k: 'fee', l: 'Taxa Venda', header: 'TAXA VENDA', width: 15, getValue: item => item.sale_fee_amount || 0 },
+  { k: 'link', l: 'Link Anúncio', header: 'LINK ANÚNCIO', width: 50, getValue: item => item.permalink },
+  { k: 'transactions', l: 'Transações Vendedor', header: 'TRANSAÇÕES VENDEDOR', width: 20, getValue: item => item.seller_transactions },
+  { k: 'power_seller', l: 'Status Power Seller', header: 'STATUS POWER SELLER', width: 20, getValue: item => item.power_seller_status },
+  { k: 'level', l: 'Nível Reputação', header: 'NÍVEL REPUTAÇÃO', width: 20, getValue: item => item.level_id },
+  { k: 'logistic', l: 'Logística', header: 'LOGÍSTICA', width: 20, getValue: item => item.logistic_type || '' },
+];
+
 function filterResultsByTerm(results, selectedProductFilter) {
   if (!selectedProductFilter) return results;
   return results.filter(r => r.search_query === selectedProductFilter);
@@ -554,9 +574,8 @@ function buildExportLabel(exportRowLimit, effectiveCount) {
   return `${effectiveCount} linhas`;
 }
 
-function triggerExcelExport(allCols, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query, setShowExportModal) {
-  const exported = buildExcelWorkbook({ allCols, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query });
-  if (exported) setShowExportModal(false);
+function triggerExcelExport(opts, setShowExportModal) {
+  if (buildExcelWorkbook(opts)) setShowExportModal(false);
 }
 
 async function updateCookie(newSsid, apiUrl, setShowAuthModal, retrySearch) {
@@ -660,27 +679,6 @@ function App() {
 
 
 
-  // All exportable columns definition
-  const allExportColumns = [
-    { k: 'id', l: 'ID', header: 'ID', width: 15, getValue: item => item.id },
-    { k: 'title', l: 'Título', header: 'TÍTULO', width: 40, getValue: item => item.title || '' },
-    { k: 'price', l: 'Preço', header: 'PREÇO (R$)', width: 12, getValue: item => item.price || 0 },
-    { k: 'nickname', l: 'Vendedor', header: 'VENDEDOR', width: 20, getValue: item => item.nickname },
-    { k: 'city', l: 'Cidade', header: 'CIDADE', width: 15, getValue: item => item.city },
-    { k: 'state', l: 'Estado', header: 'ESTADO', width: 10, getValue: item => item.state },
-    { k: 'sales_quantity', l: 'Vendas Totais', header: 'VENDAS TOTAIS', width: 15, getValue: item => item.sales_quantity },
-    { k: 'tts', l: 'TTS (h/venda)', header: 'TTS (HORAS/VENDA)', width: 20, getValue: item => item.tts || 0 },
-    { k: 'metodo', l: 'Método Cálculo', header: 'MÉTODO CÁLCULO', width: 15, getValue: item => item.metodo_calculo },
-    { k: 'vendas_dia', l: 'Velocidade (vendas/dia)', header: 'VELOCIDADE (VENDAS/DIA)', width: 20, getValue: item => item.velocity || 0 },
-    { k: 'shipping', l: 'Custo Frete', header: 'CUSTO FRETE', width: 15, getValue: item => item.shipping_cost || 0 },
-    { k: 'fee', l: 'Taxa Venda', header: 'TAXA VENDA', width: 15, getValue: item => item.sale_fee_amount || 0 },
-    { k: 'link', l: 'Link Anúncio', header: 'LINK ANÚNCIO', width: 50, getValue: item => item.permalink },
-    { k: 'transactions', l: 'Transações Vendedor', header: 'TRANSAÇÕES VENDEDOR', width: 20, getValue: item => item.seller_transactions },
-    { k: 'power_seller', l: 'Status Power Seller', header: 'STATUS POWER SELLER', width: 20, getValue: item => item.power_seller_status },
-    { k: 'level', l: 'Nível Reputação', header: 'NÍVEL REPUTAÇÃO', width: 20, getValue: item => item.level_id },
-    { k: 'logistic', l: 'Logística', header: 'LOGÍSTICA', width: 20, getValue: item => item.logistic_type || '' },
-  ];
-
   // Open export modal (reset defaults)
   const openExportModal = () => {
     setExportRowLimit('');
@@ -689,7 +687,7 @@ function App() {
   };
 
   // Export to Excel — delegates to pure helper buildExcelWorkbook
-  const exportToExcel = () => triggerExcelExport(allExportColumns, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query, setShowExportModal);
+  const exportToExcel = () => triggerExcelExport({ allCols: ALL_EXPORT_COLUMNS, exportColumns, exportSearchTerm, tableSortedResults, selectedExportIds, exportRowLimit, query }, setShowExportModal);
 
   // Sorting state
   const [sortBy, setSortBy] = useState('tts_asc');

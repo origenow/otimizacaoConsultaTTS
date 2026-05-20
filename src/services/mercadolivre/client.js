@@ -11,8 +11,9 @@ export async function getseller(accessToken, sellerIds) {
 
         // Função auxiliar para buscar informações dos vendedores em lotes de até 20
         const fetchItems = async (group) => {
-            const url = `https://api.mercadolibre.com/users?ids=${group.join(',')}`;
-            const response = await fetch(url, {
+            const url = new URL('https://api.mercadolibre.com/users');
+            url.searchParams.set('ids', group.map(String).join(','));
+            const response = await fetch(url.toString(), {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
@@ -50,8 +51,10 @@ export async function simulateshippingCost(accessToken, items, batchSize) {
             const batchResults = await Promise.all(
                 batch.map(async (item) => {
                     try {
+                        const shippingUrl = new URL(`https://api.mercadolibre.com/items/${encodeURIComponent(String(item.id))}/shipping_options`);
+                        shippingUrl.searchParams.set('zip_code', String(item.cep));
                         const response = await fetch(
-                            `https://api.mercadolibre.com/items/${item.id}/shipping_options?zip_code=${item.cep}#json`,
+                            shippingUrl.toString(),
                             {
                                 method: 'GET',
                                 headers: {
@@ -97,8 +100,12 @@ export async function fetchSaleFees(accessToken, items) {
                         return { id: obj.id, sale_fee_amount: null, listing_type_name: null };
                     }
 
-                    const url = `https://api.mercadolibre.com/sites/MLB/listing_prices?price=${obj.price}&category_id=${obj.category_id}&currency_id=BRL&listing_type_id=${obj.listing_type_id}`;
-                    const response = await fetch(url, {
+                    const url = new URL('https://api.mercadolibre.com/sites/MLB/listing_prices');
+                    url.searchParams.set('price', String(obj.price));
+                    url.searchParams.set('category_id', String(obj.category_id));
+                    url.searchParams.set('currency_id', 'BRL');
+                    url.searchParams.set('listing_type_id', String(obj.listing_type_id));
+                    const response = await fetch(url.toString(), {
                         method: 'GET',
                         headers: {
                             'Authorization': `Bearer ${accessToken}`,
