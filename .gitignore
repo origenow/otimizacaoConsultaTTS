@@ -37,3 +37,7 @@ debug_api_dump_images.jsonl
 
 # MCP local config
 .mcp.json
+
+# Debug/scratch files with sensitive data
+json_retornado.md
+*.md.local

@@ -8,4 +8,19 @@ export default defineConfig({
     react(),
     nodePolyfills()
   ],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000'
+    }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test-setup.js'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      reportsDirectory: './coverage'
+    }
+  }
 })

@@ -11,7 +11,11 @@ export async function getProxyList(token) {
         redirect: "follow"
     };
 
-    return fetch(`https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=2000`, requestOptions)
+    const endpoint = new URL('https://proxy.webshare.io/api/v2/proxy/list/');
+    endpoint.searchParams.set('mode', 'direct');
+    endpoint.searchParams.set('page', '1');
+    endpoint.searchParams.set('page_size', '2000');
+    return fetch(endpoint.toString(), requestOptions)
         .then((response) => response.json())
         .then((result) => result.results)
         .catch((error) => console.error(error));
