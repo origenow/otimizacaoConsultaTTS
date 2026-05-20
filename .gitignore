@@ -31,3 +31,9 @@ debug_api_dump_images.jsonl
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# SonarQube scanner cache
+.scannerwork/
+
+# MCP local config
+.mcp.json
