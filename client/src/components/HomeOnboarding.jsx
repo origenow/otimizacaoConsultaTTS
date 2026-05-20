@@ -114,8 +114,8 @@ const HomeOnboarding = ({ query, setQuery, handleSearch, handleCancelSearch, loa
                                 </svg>
                             )
                         }
-                    ].map((step, idx) => (
-                        <div key={idx} className="bg-white/80 backdrop-blur-md border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl p-8 relative overflow-hidden group hover:-translate-y-2 transition-all duration-500">
+                    ].map((step) => (
+                        <div key={step.num} className="bg-white/80 backdrop-blur-md border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl p-8 relative overflow-hidden group hover:-translate-y-2 transition-all duration-500">
                             <div className="absolute top-0 right-0 p-24 bg-gradient-to-br from-gray-50/50 to-transparent rounded-bl-full -mr-12 -mt-12 group-hover:scale-110 transition-transform duration-500"></div>
                             <div className="relative z-10 flex flex-col items-center text-center">
                                 <div className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-md transition-all duration-300">

@@ -33,8 +33,38 @@ function fullInsight(pct) {
 }
 
 function calcMargin(price, cost) {
-  if (!cost || cost <= 0) return null;
+  if (cost <= 0) return null;
   return ((price - cost) / price) * 100;
+}
+
+function getFullPctTextColor(pct) {
+  if (pct < 30) return 'text-emerald-600';
+  if (pct < 60) return 'text-amber-600';
+  return 'text-red-600';
+}
+
+function getFullPctTextColorHex(pct) {
+  if (pct < 30) return 'text-[#10b981]';
+  if (pct < 60) return 'text-[#f59e0b]';
+  return 'text-[#ef4444]';
+}
+
+function getFullPctBarColor(pct) {
+  if (pct < 30) return '#10b981';
+  if (pct < 60) return '#f59e0b';
+  return '#ef4444';
+}
+
+function getAvgTtsTextColor(avgTts) {
+  if (avgTts < 2) return 'text-emerald-600';
+  if (avgTts < 10) return 'text-amber-600';
+  return 'text-red-600';
+}
+
+function getTermsHeaderLabel(selectedTerms) {
+  if (selectedTerms.includes('all')) return 'Todos os termos';
+  if (selectedTerms.length === 1) return selectedTerms[0];
+  return `${selectedTerms.length} termos selecionados`;
 }
 
 function marginClass(m) {
@@ -167,7 +197,7 @@ function TermKPIs({ results }) {
   const allCandidates = useMemo(() => {
     return products.filter(p => {
       const t = terms[p.term];
-      const cost = Number.Number.parseFloat(costs[p.term]) || 0;
+      const cost = Number.parseFloat(costs[p.term]) || 0;
       const margin = cost > 0 ? calcMargin(p.price, cost) : null;
       const passMargin = margin === null || margin >= 30;
       const termNotSaturated = t.fullPct < 60;
@@ -219,7 +249,7 @@ function TermKPIs({ results }) {
 
       <div className="mb-4">
         <h2 className="text-xl font-bold text-gray-900 leading-tight">
-          Comparativo de KPIs — {selectedTerms.includes('all') ? 'Todos os termos' : selectedTerms.length === 1 ? selectedTerms[0] : `${selectedTerms.length} termos selecionados`}
+          Comparativo de KPIs — {getTermsHeaderLabel(selectedTerms)}
         </h2>
         <p className="text-sm text-gray-500 mt-1 mb-4">Insira seu preço de custo para calcular a margem potencial. Full logística em excesso = mercado mais competitivo e difícil de entrar.</p>
 
@@ -268,12 +298,12 @@ function TermKPIs({ results }) {
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-600 font-medium">Com Full logística</span>
-                      <span className={`text-xs font-black ${t.fullPct < 30 ? 'text-emerald-600' : t.fullPct < 60 ? 'text-amber-600' : 'text-red-600'}`}>
+                      <span className={`text-xs font-black ${getFullPctTextColor(t.fullPct)}`}>
                         {t.full} <span className="font-bold opacity-60">({t.fullPct.toFixed(0)}%)</span>
                       </span>
                     </div>
                     <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden shrink-0">
-                      <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${t.fullPct}%`, backgroundColor: t.fullPct < 30 ? '#10b981' : t.fullPct < 60 ? '#f59e0b' : '#ef4444' }}></div>
+                      <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${t.fullPct}%`, backgroundColor: getFullPctBarColor(t.fullPct) }}></div>
                     </div>
                   </div>
 
@@ -287,7 +317,7 @@ function TermKPIs({ results }) {
 
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-gray-600 font-medium">Velocidade média (TTS)</span>
-                    <span className={`text-sm font-black ${t.avgTts < 2 ? 'text-emerald-600' : t.avgTts < 10 ? 'text-amber-600' : 'text-red-600'}`}>{t.avgTts.toFixed(1)}h</span>
+                    <span className={`text-sm font-black ${getAvgTtsTextColor(t.avgTts)}`}>{t.avgTts.toFixed(1)}h</span>
                   </div>
                 </div>
 
@@ -339,32 +369,34 @@ function TermKPIs({ results }) {
                 
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="relative group">
-                    <label className="block text-[10px] text-gray-500 font-bold mb-1.5 uppercase ml-1">Custo</label>
+                    <label htmlFor={`cost-${key}`} className="block text-[10px] text-gray-500 font-bold mb-1.5 uppercase ml-1">Custo</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold pointer-events-none">R$</span>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        step="0.01" 
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-800 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all placeholder-gray-300 shadow-sm" 
-                        placeholder="0.00" 
-                        value={costs[key] || ''} 
-                        onChange={(e) => handleCostChange(key, e.target.value)} 
+                      <input
+                        id={`cost-${key}`}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-800 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all placeholder-gray-300 shadow-sm"
+                        placeholder="0.00"
+                        value={costs[key] || ''}
+                        onChange={(e) => handleCostChange(key, e.target.value)}
                       />
                     </div>
                   </div>
                   <div className="relative group">
-                    <label className="block text-[10px] text-gray-500 font-bold mb-1.5 uppercase ml-1">Venda</label>
+                    <label htmlFor={`sell-${key}`} className="block text-[10px] text-gray-500 font-bold mb-1.5 uppercase ml-1">Venda</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold pointer-events-none">R$</span>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        step="0.01" 
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-800 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all placeholder-gray-100 shadow-sm" 
-                        placeholder={t.avgPrice.toFixed(2)} 
-                        value={sellPrices[key] || ''} 
-                        onChange={(e) => handleSellPriceChange(key, e.target.value)} 
+                      <input
+                        id={`sell-${key}`}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-800 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all placeholder-gray-100 shadow-sm"
+                        placeholder={t.avgPrice.toFixed(2)}
+                        value={sellPrices[key] || ''}
+                        onChange={(e) => handleSellPriceChange(key, e.target.value)}
                       />
                     </div>
                   </div>
@@ -380,8 +412,8 @@ function TermKPIs({ results }) {
                       </div>
                     )}
                   </div>
-                  <div className={`text-2xl font-black font-mono tracking-tighter ${margin !== null ? rec.color : 'text-gray-300'}`}>
-                    {margin !== null ? `${margin.toFixed(1)}%` : '—%'}
+                  <div className={`text-2xl font-black font-mono tracking-tighter ${margin === null ? 'text-gray-300' : rec.color}`}>
+                    {margin === null ? '—%' : `${margin.toFixed(1)}%`}
                   </div>
                 </div>
               </div>
@@ -435,7 +467,7 @@ function TermKPIs({ results }) {
                       <td className="px-4 py-3">
                         <div className="font-semibold text-gray-800 line-clamp-2 text-xs" title={p.name}>{p.name}</div>
                         <div className="text-[10px] text-gray-400 mt-1 uppercase truncate max-w-[200px]" title={p.term}>
-                          {p.term} · Full mercado: <span className={`font-bold ${t.fullPct < 30 ? 'text-[#10b981]' : t.fullPct < 60 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{t.fullPct.toFixed(0)}%</span>
+                          {p.term} · Full mercado: <span className={`font-bold ${getFullPctTextColorHex(t.fullPct)}`}>{t.fullPct.toFixed(0)}%</span>
                         </div>
                       </td>
                       <td className="px-4 py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${fr.cls}`}>{fr.label}</span></td>
@@ -443,9 +475,11 @@ function TermKPIs({ results }) {
                       <td className="px-4 py-3 font-semibold text-gray-700">{p.sales.toLocaleString('pt-BR')}</td>
                       <td className="px-4 py-3 font-mono font-medium text-gray-800">R$ {p.price.toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
-                        {margin !== null ? (
+                        {margin === null ? (
+                          <span className="text-gray-300 text-xs">—</span>
+                        ) : (
                           <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-mono">{margin.toFixed(1)}%</span>
-                        ) : <span className="text-gray-300 text-xs">—</span>}
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {p.full ? (

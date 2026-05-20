@@ -62,6 +62,9 @@ const ParticleCard = ({
             className={`${className} relative overflow-hidden`}
             style={{ ...style, position: 'relative', overflow: 'hidden' }}
             onClick={onClick}
+            role={onClick ? 'button' : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick(e) : undefined}
         >
             {children}
         </div>
@@ -172,12 +175,12 @@ const GlobalSpotlight = ({
                 ease: 'power2.out'
             });
 
-            const targetOpacity =
-                minDistance <= proximity
-                    ? 0.8
-                    : minDistance <= fadeDistance
-                        ? ((fadeDistance - minDistance) / (fadeDistance - proximity)) * 0.8
-                        : 0;
+            let targetOpacity = 0;
+            if (minDistance <= proximity) {
+                targetOpacity = 0.8;
+            } else if (minDistance <= fadeDistance) {
+                targetOpacity = ((fadeDistance - minDistance) / (fadeDistance - proximity)) * 0.8;
+            }
 
             gsap.to(spotlightRef.current, {
                 opacity: targetOpacity,

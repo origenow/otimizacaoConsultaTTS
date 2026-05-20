@@ -334,6 +334,24 @@ function buildHeaders(cookieJar, options = {}) {
  * FETCH WITH RETRY (requisito B) - Integrado com Rate Limiter
  * ============================================================================
  */
+async function drainBody(res) {
+    try { await res.text(); } catch (e) { console.debug('[fetchWithRetry] body drain failed:', e.message); }
+}
+
+function calc429WaitMs(res, attempt) {
+    const retryAfter = res.headers.get("Retry-After");
+    let waitMs = Math.min(CONFIG.BASE_DELAY_MS * Math.pow(2.5, attempt), CONFIG.MAX_DELAY_MS);
+    if (retryAfter) {
+        const sec = Number.parseInt(retryAfter, 10);
+        if (!Number.isNaN(sec)) waitMs = Math.min(sec * 1_000, CONFIG.MAX_DELAY_MS);
+    }
+    return waitMs + rand(200, 1000);
+}
+
+function calc5xxWaitMs(attempt) {
+    return Math.min(CONFIG.BASE_DELAY_MS * Math.pow(1.8, attempt), CONFIG.MAX_DELAY_MS) + rand(150, 600);
+}
+
 async function fetchWithRetry(url, options = {}, retries = CONFIG.MAX_RETRIES, context = "") {
     const limiter = getRateLimiter(url);
     let attempt = 0;
@@ -341,78 +359,42 @@ async function fetchWithRetry(url, options = {}, retries = CONFIG.MAX_RETRIES, c
 
     while (attempt <= retries) {
         try {
-            // AGUARDAR TOKEN DO RATE LIMITER
             await limiter.acquire();
+            const res = await fetch(url, { ...options, agent: httpsAgent });
 
-            // Fazer request com https agent
-            const res = await fetch(url, {
-                ...options,
-                agent: httpsAgent,
-            });
-
-            // === TRATAMENTO DIFERENCIADO POR STATUS ===
-
-            // 429: backoff forte + aumenta throttle global
             if (res.status === 429) {
                 limiter.record429();
-
-                const retryAfter = res.headers.get("Retry-After");
-                let waitMs = Math.min(
-                    CONFIG.BASE_DELAY_MS * Math.pow(2.5, attempt),
-                    CONFIG.MAX_DELAY_MS
-                );
-
-                if (retryAfter) {
-                    const sec = Number.parseInt(retryAfter, 10);
-                    if (!Number.isNaN(sec)) waitMs = Math.min(sec * 1_000, CONFIG.MAX_DELAY_MS);
-                }
-
-                waitMs += rand(200, 1000);
-
-                try { await res.text(); } catch (e) { console.debug('[fetchWithRetry] body drain failed:', e.message); }
+                const waitMs = calc429WaitMs(res, attempt);
+                await drainBody(res);
                 await sleep(waitMs);
                 attempt++;
                 continue;
             }
 
-            // 5xx: backoff moderado (não afeta rate limiter global)
             if (res.status >= 500) {
-                let waitMs = Math.min(
-                    CONFIG.BASE_DELAY_MS * Math.pow(1.8, attempt),
-                    CONFIG.MAX_DELAY_MS
-                );
-                waitMs += rand(150, 600);
-
-                try { await res.text(); } catch (e) { console.debug('[fetchWithRetry] body drain failed:', e.message); }
-                await sleep(waitMs);
+                await drainBody(res);
+                await sleep(calc5xxWaitMs(attempt));
                 attempt++;
                 continue;
             }
 
-            // 403/401: falha rápida (não insistir)
             if (res.status === 403 || res.status === 401) {
-                try { await res.text(); } catch (e) { console.debug('[fetchWithRetry] body drain failed:', e.message); }
-                return res; // retorna sem retry
+                await drainBody(res);
+                return res;
             }
 
-            // Success: registrar no limiter
-            if (res.ok) {
-                limiter.recordSuccess();
-            }
-
+            if (res.ok) limiter.recordSuccess();
             return res;
 
         } catch (err) {
             lastErr = err;
             attempt++;
             if (attempt > retries) break;
-
-            const waitMs = 400 * attempt + rand(100, 400);
-            await sleep(waitMs);
+            await sleep(400 * attempt + rand(100, 400));
         }
     }
 
-    throw lastErr || new Error(`fetchWithRetry failed after ${retries} retries`);
+    throw lastErr || new Error(`fetchWithRetry failed after ${retries} retries [${context}]`);
 }
 
 /**
@@ -452,22 +434,39 @@ const SESSION_REGEX_REL =
 
 function extractSessionFromLocation(location) {
     if (!location) return null;
-    const m = /\/publicar\/bomni\/([a-zA-Z0-9_-]+)\/item_data_form/i.exec(location);
+    const m = SESSION_REGEX_REL.exec(location);
     return m?.[1] || null;
+}
+
+function searchDOMForSession($) {
+    let found = null;
+    $("a, link, form").each((_, el) => {
+        const href = $(el).attr("href") || $(el).attr("action");
+        if (!href) return;
+        const mm = SESSION_REGEX_REL.exec(href) || SESSION_REGEX_ABS.exec(href);
+        if (mm?.[1]) { found = mm[1]; return false; }
+    });
+    if (found) return { sessionId: found, strategy: "D(dom-href/action)" };
+
+    let scriptFound = null;
+    $("script").each((_, el) => {
+        const txt = $(el).html() || "";
+        if (!txt.includes("item_data_form")) return;
+        const mm = SESSION_REGEX_REL.exec(txt) || SESSION_REGEX_ABS.exec(txt);
+        if (mm?.[1]) { scriptFound = mm[1]; return false; }
+    });
+    return scriptFound ? { sessionId: scriptFound, strategy: "D(script)" } : null;
 }
 
 function bruteForceSessionId(html) {
     if (!html) return null;
 
-    // A: absoluto
     let m = SESSION_REGEX_ABS.exec(html);
     if (m?.[1]) return { sessionId: m[1], strategy: "A(abs-url)" };
 
-    // B: relativo
     m = SESSION_REGEX_REL.exec(html);
     if (m?.[1]) return { sessionId: m[1], strategy: "B(rel-url)" };
 
-    // Meta refresh
     const metaRefresh = /http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["']/i.exec(html);
     if (metaRefresh?.[1]) {
         const url = metaRefresh[1];
@@ -475,7 +474,6 @@ function bruteForceSessionId(html) {
         if (mm?.[1]) return { sessionId: mm[1], strategy: "META(refresh)" };
     }
 
-    // C: __PRELOADED_STATE__
     if (html.includes("window.__PRELOADED_STATE__")) {
         try {
             const marker = "window.__PRELOADED_STATE__";
@@ -483,7 +481,7 @@ function bruteForceSessionId(html) {
             const braceStart = html.indexOf("{", start);
             if (braceStart !== -1) {
                 const jsonStr = sliceBalancedBraces(html, braceStart);
-                let mm = SESSION_REGEX_REL.exec(jsonStr) || SESSION_REGEX_ABS.exec(jsonStr);
+                const mm = SESSION_REGEX_REL.exec(jsonStr) || SESSION_REGEX_ABS.exec(jsonStr);
                 if (mm?.[1]) return { sessionId: mm[1], strategy: "C(preloaded-regex)" };
             }
         } catch (e) {
@@ -491,33 +489,8 @@ function bruteForceSessionId(html) {
         }
     }
 
-    // D: Cheerio
     try {
-        const $ = load(html);
-
-        let found = null;
-        $("a, link, form").each((_, el) => {
-            const href = $(el).attr("href") || $(el).attr("action");
-            if (!href) return;
-            const mm = href.match(SESSION_REGEX_REL) || href.match(SESSION_REGEX_ABS);
-            if (mm?.[1]) {
-                found = mm[1];
-                return false;
-            }
-        });
-        if (found) return { sessionId: found, strategy: "D(dom-href/action)" };
-
-        let scriptFound = null;
-        $("script").each((_, el) => {
-            const txt = $(el).html() || "";
-            if (!txt.includes("item_data_form")) return;
-            const mm = SESSION_REGEX_REL.exec(txt) || SESSION_REGEX_ABS.exec(txt);
-            if (mm?.[1]) {
-                scriptFound = mm[1];
-                return false;
-            }
-        });
-        if (scriptFound) return { sessionId: scriptFound, strategy: "D(script)" };
+        return searchDOMForSession(load(html));
     } catch (e) {
         console.debug('[bruteForce] DOM parse failed:', e.message);
     }
@@ -606,7 +579,7 @@ async function probeSession({ sessionId, jar, referer }) {
             // HEAD sucesso
             return probeUrl;
         }
-    } catch (err) {
+    } catch {
         // HEAD failed, fallback to GET
     }
 
@@ -752,7 +725,7 @@ async function getSalesEstimateWithScrapeless({ itemId, productId }) {
         // Tentar esperar pelo conteúdo ou pelo __PRELOADED_STATE__
         try {
             await page.waitForSelector('body', { timeout: 10000 });
-        } catch (e) { }
+        } catch { }
 
         const html = await page.content();
 
@@ -921,7 +894,7 @@ function findAutomationRowData(obj) {
     if (!obj || typeof obj !== "object") return null;
 
     // Caminhos comuns no ML
-    if (obj.automationTable && Array.isArray(obj.automationTable.rowData)) return obj.automationTable.rowData;
+    if (Array.isArray(obj.automationTable?.rowData)) return obj.automationTable.rowData;
     if (obj.modal?.content?.automationTable?.rowData) return obj.modal.content.automationTable.rowData;
 
     // Deep search

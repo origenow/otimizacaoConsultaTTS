@@ -18,7 +18,7 @@ const CookieUpdaterModal = ({ isOpen, onClose, onUpdate }) => {
         try {
             await onUpdate(ssid);
             setSsid('');
-        } catch (err) {
+        } catch {
             setError('Falha ao atualizar o cookie. Tente novamente.');
         } finally {
             setLoading(false);

@@ -142,22 +142,18 @@ function LocationHeatmap({ results }) {
                     </div>
 
                     {/* Ranked List Section - Takes 2 cols */}
-                    <div className="lg:col-span-2 space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+                    <ul className="lg:col-span-2 space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 list-none p-0 m-0">
                         {sortedStates.map(([code, count], index) => {
                             const widthPercent = (count / totalCalculated) * 100;
                             const percentageOfTotal = ((count / totalCalculated) * 100).toFixed(1);
                             const stateName = BRAZIL_STATES[code]?.name || code;
 
                             return (
-                                <div
+                                <li
                                     key={code}
-                                    tabIndex={0}
-                                    role="listitem"
-                                    className="group flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition-all cursor-pointer focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
+                                    className="group flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition-all cursor-default focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
                                     onMouseEnter={() => setHoveredState(code)}
                                     onMouseLeave={() => setHoveredState(null)}
-                                    onFocus={() => setHoveredState(code)}
-                                    onBlur={() => setHoveredState(null)}
                                 >
                                     <div className={`
                                         w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 border
@@ -184,10 +180,10 @@ function LocationHeatmap({ results }) {
                                     <div className="shrink-0 font-bold text-gray-900 min-w-[30px] text-right">
                                         {count}
                                     </div>
-                                </div>
+                                </li>
                             );
                         })}
-                    </div>
+                    </ul>
                 </div>
             )}
         </div>

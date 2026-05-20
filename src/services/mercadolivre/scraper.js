@@ -143,6 +143,37 @@ export async function ifCatalog(catalogID, xsrf, csrf, d2id, proxyIterator) {
 
 
 
+function parseSalesQuantity(subtitle) {
+    if (!subtitle) return 0;
+    const lowerSub = subtitle.toLowerCase().replaceAll('.', '').replace(',', '.');
+    const milMatch = /([\d.]+)\s*(mil|milhares)/.exec(lowerSub);
+    if (milMatch) return Number.parseFloat(milMatch[1]) * 1000;
+    return Number.parseInt(/\d+/g.exec(lowerSub)?.[0] || 0, 10);
+}
+
+function extractThumbnail(data) {
+    const pictures = data.components?.gallery?.pictures;
+    if (pictures?.length > 0) {
+        const firstPic = pictures[0];
+        if (firstPic.url) return firstPic.url;
+        if (firstPic.id) return `https://http2.mlstatic.com/D_NQ_NP_${firstPic.id}-O.webp`;
+    }
+    return data.components?.track?.gtm_event?.picture || null;
+}
+
+function detectFulfillment(data, logistic_type) {
+    if (logistic_type === 'fulfillment') return true;
+    const shippingStr = JSON.stringify(data.components?.shipping || {}).toLowerCase();
+    if (shippingStr.includes('fulfillment') || /\bfull\b/.test(shippingStr)) return true;
+    const highlightsStr = JSON.stringify(data.components?.highlights || data.components?.header?.tags || []).toLowerCase();
+    return highlightsStr.includes('fulfillment') || /\bfull\b/.test(highlightsStr);
+}
+
+function inferFreeShipping(data, eventData) {
+    if (eventData.free_shipping != null) return eventData.free_shipping;
+    return JSON.stringify(data.components ?? {}).toLowerCase().includes("frete grátis");
+}
+
 export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, catalogID = null) {
     // Verifica se já existe no cache
     if (itemCache.has(itemID)) {
@@ -180,25 +211,8 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
     let response = await fetch(url, fetchOptions);
     let data = await response.json();
 
-    // Extrair e formatar o número de vendas
     const subtitle = data.components?.header?.subtitle || '';
-
-    // --- PARSING APRIMORADO DE VENDAS (MILS/MILHARES) ---
-    // Ex: "+10 mil vendidos", "+5 mil vendidos", "1000 vendidos"
-    let salesQuantity = 0;
-    if (subtitle) {
-        const lowerSub = subtitle.toLowerCase().replaceAll('.', '').replace(',', '.'); // Normalize dot/comma
-
-        // 1. Check for "mil" or "milhares" patterns (e.g. "+5 mil", "10 mil")
-        const milMatch = /([\d.]+)\s*(mil|milhares)/.exec(lowerSub);
-        if (milMatch) {
-            const numberPart = Number.parseFloat(milMatch[1]);
-            salesQuantity = numberPart * 1000;
-        } else {
-            // 2. Normal number extraction if no "mil"
-            salesQuantity = Number.parseInt(lowerSub.match(/\d+/g)?.join('') || 0, 10);
-        }
-    }
+    const salesQuantity = parseSalesQuantity(subtitle);
 
     // Extrair startTime do caminho components.track.gtm_event.startTime
     const startTime = data.components?.track?.gtm_event?.startTime || null;
@@ -217,10 +231,7 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
 
     // 3. Components Price (Último recurso)
     if (!itemPrice) {
-        const priceComponent = data.components?.price;
-        if (priceComponent && priceComponent.value) {
-            itemPrice = priceComponent.value;
-        }
+        itemPrice = data.components?.price?.value || null;
     }
 
 
@@ -237,39 +248,13 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
     const reviewRating = reviewsObj.rating || null;
     const reviewTotal = reviewsObj.amount || 0;
 
-    // Extrair Imagem (Thumbnail) - Robustez para VIP API
-    let thumbnail = null;
-    // 1. Tenta pegar do Gallery usando ID e Template
-    const gallery = data.components?.gallery || {};
-    if (gallery.pictures && gallery.pictures.length > 0) {
-        const firstPic = gallery.pictures[0];
-        if (firstPic.url) {
-            thumbnail = firstPic.url;
-        } else if (firstPic.id) {
-            // Constrói URL padrão do ML
-            thumbnail = `https://http2.mlstatic.com/D_NQ_NP_${firstPic.id}-O.webp`;
-        }
-    }
-    // 2. Fallback GTM
-    if (!thumbnail) {
-        thumbnail = data.components?.track?.gtm_event?.picture;
-    }
+    const thumbnail = extractThumbnail(data);
 
     // Extrair dados do caminho track.melidata_event.event_data
     // Tentar primeiro em components.track.melidata_event.event_data, depois em track.melidata_event.event_data
     const eventData = data.components?.track?.melidata_event?.event_data || data.track?.melidata_event?.event_data || {};
 
-    // Tentar inferir Frete Grátis se eventData falhar
-    let free_shipping = eventData.free_shipping;
-    if (free_shipping == null) {
-        // Tenta achar texto de frete grátis nos componentes visuais
-        const jsonString = JSON.stringify(data.components ?? {});
-        if (jsonString.toLowerCase().includes("frete grátis")) {
-            free_shipping = true;
-        } else {
-            free_shipping = false;
-        }
-    }
+    const free_shipping = inferFreeShipping(data, eventData);
 
     // Tentar inferir Listing Type para cálculo de frete
     let listing_type_id_from_event = eventData.listing_type_id;
@@ -287,21 +272,7 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
     const { marca, numeroPeca } = getMarcaENumeroPeca(data);
     const codigoOEM = getCodigoOEM(data);
 
-    // Detecção robusta de Fulfillment (Full) - verifica múltiplas fontes
-    let is_fulfillment = logistic_type === 'fulfillment';
-
-    // Fallback 1: verificar componente de shipping por indicadores de fulfillment
-    if (!is_fulfillment) {
-        const shippingStr = JSON.stringify(data.components?.shipping || {}).toLowerCase();
-        // Padrões comuns: "Full", "Enviado pelo Full", "fulfillment"
-        is_fulfillment = shippingStr.includes('fulfillment') || /\bfull\b/.test(shippingStr);
-    }
-
-    // Fallback 2: verificar highlights/tags do componente por indicadores de fulfillment
-    if (!is_fulfillment) {
-        const highlightsStr = JSON.stringify(data.components?.highlights || data.components?.header?.tags || []).toLowerCase();
-        is_fulfillment = highlightsStr.includes('fulfillment') || /\bfull\b/.test(highlightsStr);
-    }
+    const is_fulfillment = detectFulfillment(data, logistic_type);
 
     const scrapedSales = Number.parseInt(salesQuantity, 10) || 0;
 
@@ -338,9 +309,8 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
 }
 
 export async function searchProducts(query, proxyIterator, accessToken) {
-    // Formatar o termo de pesquisa para URL (ex: "boneca barbie" -> "boneca-barbie")
-    const queryFormatted = query.toLowerCase().replace(/\s+/g, '-');
-    const searchUrl = `https://lista.mercadolivre.com.br/${queryFormatted}`;
+    const queryPath = encodeURIComponent(query.trim().toLowerCase()).replace(/%20/g, '-');
+    const searchUrl = `https://lista.mercadolivre.com.br/${queryPath}`;
 
     // Obter headers de autenticação
     const authHeaders = await getAuthHeaders(proxyIterator);
@@ -543,7 +513,7 @@ export async function searchProducts(query, proxyIterator, accessToken) {
             item.city = seller.address?.city || null;
             // Remover "BR-" do estado se presente
             let state = seller.address?.state || null;
-            if (state && typeof state === 'string' && state.startsWith('BR-')) {
+            if (state?.startsWith('BR-')) {
                 state = state.substring(3);
             }
             item.state = state;
@@ -559,11 +529,8 @@ export async function searchProducts(query, proxyIterator, accessToken) {
             item.level_id = item.reputation_level || null;
         }
 
-        // Limpar campos temporários
         delete item.cep;
         delete item.reputation_level;
-        // delete item.free_shipping; // Mantendo para frontend
-        // delete item.quantity; // Mantendo para frontend
 
         return item;
     })

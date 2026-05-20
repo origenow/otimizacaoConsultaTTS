@@ -246,8 +246,49 @@ const buildExcelWorkbook = ({ allCols, exportColumns, exportSearchTerm, tableSor
   return true;
 };
 
+const computeStats = (results) => {
+  if (results.length === 0) return null;
+  const totalItems = results.length;
+  const validTTS = results.filter(r => !Number.isNaN(Number.parseFloat(r.tts)));
+  const validPrices = results.filter(r => typeof r.price === 'number' && !Number.isNaN(r.price));
+  const avgTTS = validTTS.length
+    ? (validTTS.reduce((acc, curr) => acc + Number.parseFloat(curr.tts), 0) / validTTS.length).toFixed(1)
+    : 'N/A';
+  const bestTTS = validTTS.length
+    ? validTTS.reduce((prev, curr) => (Number.parseFloat(prev.tts) < Number.parseFloat(curr.tts) ? prev : curr), validTTS[0])
+    : null;
+  const minPrice = validPrices.length ? Math.min(...validPrices.map(r => r.price)) : 0;
+  const maxPrice = validPrices.length ? Math.max(...validPrices.map(r => r.price)) : 0;
+  const avgPrice = validPrices.length
+    ? (validPrices.reduce((acc, curr) => acc + curr.price, 0) / validPrices.length).toFixed(2)
+    : '0.00';
+  const totalSales = results.reduce((acc, curr) => acc + (Number.parseInt(curr.sales_quantity) || 0), 0);
+  return { totalItems, avgTTS, bestTTS, minPrice, maxPrice, avgPrice, totalSales };
+};
+
+const runSearchTerms = async (searchTerms, signal, setCurrentSearchIndex, setSearchProgress) => {
+  const allResults = [];
+  const errors = [];
+  for (let i = 0; i < searchTerms.length; i++) {
+    const term = searchTerms[i];
+    setCurrentSearchIndex(i);
+    setSearchProgress(`Buscando ${i + 1} de ${searchTerms.length}: "${term}"...`);
+    try {
+      const res = await fetchTerm(term, signal);
+      if (res.requiresAuth) return { requiresAuth: true };
+      if (res.success) allResults.push(...res.data);
+      else errors.push(res.error);
+    } catch (err) {
+      if (err.name === 'AbortError') return { aborted: true };
+      errors.push(`"${term}": ${err.message || 'Erro desconhecido.'}`);
+      console.error(`[Busca] Erro ao buscar "${term}":`, err);
+    }
+  }
+  return { allResults, errors };
+};
+
 const parseSearchTerms = (query) => {
-  if (!query || !query.trim()) return [];
+  if (!query?.trim()) return [];
   return query.split(',')
     .map(t => t.trim())
     .map(t => t.replace(/[\\/|_\-+=]/g, ' ').replace(/\s+/g, ' ').trim())
@@ -364,7 +405,6 @@ function App() {
 
     setSearchTermsCount(searchTerms.length);
     setCurrentSearchIndex(0);
-
     setLoading(true);
     setError(null);
     setResults([]);
@@ -376,40 +416,20 @@ function App() {
     setSearchProgress('');
 
     abortControllerRef.current = new AbortController();
+    const outcome = await runSearchTerms(searchTerms, abortControllerRef.current.signal, setCurrentSearchIndex, setSearchProgress);
 
-    const allResults = [];
-    const errors = [];
-
-    for (let i = 0; i < searchTerms.length; i++) {
-      const term = searchTerms[i];
-      setCurrentSearchIndex(i);
-      setSearchProgress(`Buscando ${i + 1} de ${searchTerms.length}: "${term}"...`);
-
-      try {
-        const res = await fetchTerm(term, abortControllerRef.current.signal);
-        
-        if (res.requiresAuth) {
-          setShowAuthModal(true);
-          setLoading(false);
-          setSearchProgress('');
-          return;
-        }
-
-        if (res.success) {
-          allResults.push(...res.data);
-        } else {
-          errors.push(res.error);
-        }
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          console.log('[Busca] Busca cancelada pelo usuário.');
-          return;
-        }
-        errors.push(`"${term}": ${err.message || 'Erro desconhecido.'}`);
-        console.error(`[Busca] Erro ao buscar "${term}":`, err);
-      }
+    if (outcome.requiresAuth) {
+      setShowAuthModal(true);
+      setLoading(false);
+      setSearchProgress('');
+      return;
+    }
+    if (outcome.aborted) {
+      console.log('[Busca] Busca cancelada pelo usuário.');
+      return;
     }
 
+    const { allResults, errors } = outcome;
     setResults([...allResults]);
 
     if (errors.length > 0 && allResults.length === 0) {
@@ -576,30 +596,12 @@ function App() {
         }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => globalThis.removeEventListener('keydown', handleKeyDown);
   }, [showExportModal, selectedProduct, showAuthModal]);
 
-  // Dashboard calculations (use filteredResults)
-  const stats = useMemo(() => {
-    if (filteredResults.length === 0) return null;
-    const totalItems = filteredResults.length;
-
-    // Filter valid TTS and Prices for accurate stats
-    const validTTS = filteredResults.filter(r => !Number.isNaN(Number.parseFloat(r.tts)));
-    const validPrices = filteredResults.filter(r => typeof r.price === 'number' && !Number.isNaN(r.price));
-
-    const avgTTS = validTTS.length ? (validTTS.reduce((acc, curr) => acc + Number.parseFloat(curr.tts), 0) / validTTS.length).toFixed(1) : 'N/A';
-    const bestTTS = validTTS.length ? validTTS.reduce((prev, curr) => (Number.parseFloat(prev.tts) < Number.parseFloat(curr.tts) ? prev : curr), validTTS[0]) : null;
-
-    const minPrice = validPrices.length ? Math.min(...validPrices.map(r => r.price)) : 0;
-    const maxPrice = validPrices.length ? Math.max(...validPrices.map(r => r.price)) : 0;
-    const avgPrice = validPrices.length ? (validPrices.reduce((acc, curr) => acc + curr.price, 0) / validPrices.length).toFixed(2) : '0.00';
-
-    const totalSales = filteredResults.reduce((acc, curr) => acc + (Number.parseInt(curr.sales_quantity) || 0), 0);
-
-    return { totalItems, avgTTS, bestTTS, minPrice, maxPrice, avgPrice, totalSales };
-  }, [filteredResults]);
+  // Dashboard calculations delegated to pure helper (S3776)
+  const stats = useMemo(() => computeStats(filteredResults), [filteredResults]);
 
   // Transform stats for MagicBento
   const statsCards = useMemo(() => {
@@ -672,8 +674,8 @@ function App() {
             <div className="flex-1 flex flex-col justify-center relative z-10 min-w-[40%]">
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-origenow-fire/20 text-origenow-fire border border-origenow-fire/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md shadow-lg flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-origenow-fire animate-pulse inline-block"></span>
-                  Campeão de Vendas
+                  <span className="w-2 h-2 rounded-full bg-origenow-fire animate-pulse inline-block"></span>{' '}
+                  <span>Campeão de Vendas</span>
                 </div>
                 <span className="text-gray-400 text-xs font-bold tracking-widest uppercase opacity-70">Top #1 Performance</span>
               </div>
@@ -1432,11 +1434,9 @@ function App() {
                                 {visibleColumns.vendas_dia && <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">{item.vendas_1_dia}</td>}
 
                                 {visibleColumns.shipping && <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                                  {(() => {
-                                    if (item.free_shipping) return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">Grátis</span>;
-                                    if (item.shipping_cost === 999) return '?';
-                                    return `R$ ${item.shipping_cost?.toFixed(2)}`;
-                                  })()}
+                                  {item.free_shipping
+                                    ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">Grátis</span>
+                                    : <span>{item.shipping_cost === 999 ? '?' : `R$ ${item.shipping_cost?.toFixed(2)}`}</span>}
                                 </td>}
 
                                 {visibleColumns.fee && <td className="px-6 py-4 whitespace-nowrap text-gray-500">
@@ -1807,6 +1807,7 @@ function App() {
             <div
               className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg animate-fade-in-up overflow-hidden"
               onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">

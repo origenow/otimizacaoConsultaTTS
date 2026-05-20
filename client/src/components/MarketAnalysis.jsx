@@ -51,6 +51,48 @@ const COLORS = {
 const tc = '#9ca3af'; // gray-400
 const gc = 'rgba(0,0,0,0.05)';
 
+const getScoreColor = (score) => {
+  if (score >= 60) return COLORS.hot;
+  if (score >= 30) return COLORS.warn;
+  return COLORS.cold;
+};
+
+const getHhiColor = (pct) => {
+  if (pct < 25) return '#639922';
+  if (pct < 60) return '#BA7517';
+  return '#E24B4A';
+};
+
+const getHhiLabel = (pct) => {
+  if (pct < 25) return 'Disperso';
+  if (pct < 60) return 'Moderado';
+  return 'Concentrado';
+};
+
+const getSellerShareClass = (i) => {
+  if (i === 0) return 'bg-red-100 text-red-600';
+  if (i < 3) return 'bg-amber-100 text-amber-600';
+  return 'bg-green-50 text-green-600';
+};
+
+const getBarrierColor = (pct) => {
+  if (pct >= 60) return '#E24B4A';
+  if (pct >= 30) return '#BA7517';
+  return '#639922';
+};
+
+const getBarrierLabel = (pct) => {
+  if (pct >= 60) return 'alta';
+  if (pct >= 30) return 'moderada';
+  return 'baixa';
+};
+
+const getTtsCurveColor = (v) => {
+  if (v < 10) return '#639922';
+  if (v < 30) return '#BA7517';
+  return '#E24B4A';
+};
+
 const CHART_DEFAULTS = {
   responsive: true,
   maintainAspectRatio: false,
@@ -102,7 +144,7 @@ function QuadrantChart({ results }) {
     const sales = Number.parseInt(item.sales_quantity) || 0;
     const price = Number.parseFloat(item.price) || 10;
     const score = scoreItem(item);
-    const color = score >= 60 ? COLORS.hot : score >= 30 ? COLORS.warn : COLORS.cold;
+    const color = getScoreColor(score);
     const r = Math.max(4, Math.min(18, Math.sqrt(price) * 1.2));
     return { x: tts, y: sales, r, color, label: item.title?.slice(0, 28) || item.id };
   }).filter(d => d.x !== null && d.y > 0), [results]);
@@ -432,8 +474,8 @@ function MarketConcentration({ results }) {
   }), [labels, shares]);
 
   const hhiPct = Math.min(100, Math.round((hhi / 10000) * 100));
-  const hhiColor = hhiPct < 25 ? '#639922' : hhiPct < 60 ? '#BA7517' : '#E24B4A';
-  const hhiLabel = hhiPct < 25 ? 'Disperso' : hhiPct < 60 ? 'Moderado' : 'Concentrado';
+  const hhiColor = getHhiColor(hhiPct);
+  const hhiLabel = getHhiLabel(hhiPct);
 
   return (
     <Card
@@ -468,7 +510,14 @@ function MarketConcentration({ results }) {
 
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            role="button"
+            tabIndex={0}
+            aria-label="Fechar"
+            onClick={() => setShowModal(false)}
+            onKeyDown={(e) => e.key === 'Enter' && setShowModal(false)}
+          />
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[85vh] flex flex-col relative z-50 overflow-hidden animate-fade-in-up">
             <div className="p-6 border-b border-gray-100 flex justify-between items-start bg-gray-50/50">
               <div>
@@ -547,7 +596,7 @@ function MarketConcentration({ results }) {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 text-right font-mono font-medium">{s.sales.toLocaleString('pt-BR')}</td>
                       <td className="px-6 py-4 text-right">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest ${i === 0 ? 'bg-red-100 text-red-600' : i < 3 ? 'bg-amber-100 text-amber-600' : 'bg-green-50 text-green-600'}`}>
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest ${getSellerShareClass(i)}`}>
                           {s.share.toFixed(1)}%
                         </span>
                       </td>
@@ -730,8 +779,8 @@ function SellerHealth({ results }) {
         },
       }), [labels, counts]);
 
-      const barrierColor = strongPct >= 60 ? '#E24B4A' : strongPct >= 30 ? '#BA7517' : '#639922';
-      const barrierLabel = strongPct >= 60 ? 'alta' : strongPct >= 30 ? 'moderada' : 'baixa';
+      const barrierColor = getBarrierColor(strongPct);
+      const barrierLabel = getBarrierLabel(strongPct);
 
       return (
         <Card
@@ -778,7 +827,7 @@ function TtsRankCurve({ results }) {
             borderWidth: 2,
             backgroundColor: 'rgba(124,58,237,0.08)',
             fill: true,
-            pointBackgroundColor: ttsCurve.map(v => v < 10 ? '#639922' : v < 30 ? '#BA7517' : '#E24B4A'),
+            pointBackgroundColor: ttsCurve.map(getTtsCurveColor),
             pointRadius: 3,
             tension: 0.35,
           }],
@@ -841,6 +890,23 @@ function MarketAnalysis({ results }) {
       </div>
     );
 }
+
+Card.propTypes = {
+  title: PropTypes.string.isRequired,
+  sub: PropTypes.string,
+  children: PropTypes.node,
+  wide: PropTypes.bool,
+  action: PropTypes.node,
+};
+
+QuadrantChart.propTypes = { results: PropTypes.arrayOf(PropTypes.object).isRequired };
+TtsHistogram.propTypes = { results: PropTypes.arrayOf(PropTypes.object).isRequired };
+PriceVsTts.propTypes = { results: PropTypes.arrayOf(PropTypes.object).isRequired };
+MarketConcentration.propTypes = { results: PropTypes.arrayOf(PropTypes.object).isRequired };
+QualityFunnel.propTypes = { results: PropTypes.arrayOf(PropTypes.object).isRequired };
+PriceDistribution.propTypes = { results: PropTypes.arrayOf(PropTypes.object).isRequired };
+SellerHealth.propTypes = { results: PropTypes.arrayOf(PropTypes.object).isRequired };
+TtsRankCurve.propTypes = { results: PropTypes.arrayOf(PropTypes.object).isRequired };
 
 MarketAnalysis.propTypes = {
     results: PropTypes.arrayOf(PropTypes.object).isRequired,
