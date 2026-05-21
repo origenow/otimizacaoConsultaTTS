@@ -42,9 +42,15 @@ async function syncCookieToBackend(ssid) {
       body: JSON.stringify({ ssid })
     });
 
-    const status = response.ok ? 'success' : 'error';
-    await chrome.storage.local.set({ lastSync: new Date().toISOString(), lastStatus: status });
-  } catch {
+    if (response.ok) {
+      console.log('[ML Sync] ✅ SSID synced to', serverUrl);
+      await chrome.storage.local.set({ lastSync: new Date().toISOString(), lastStatus: 'success' });
+    } else {
+      console.error('[ML Sync] ❌ Server returned', response.status, response.statusText);
+      await chrome.storage.local.set({ lastSync: new Date().toISOString(), lastStatus: 'error' });
+    }
+  } catch (err) {
+    console.error('[ML Sync] ❌ Network/CORS error:', err.message, '→ URL:', serverUrl);
     await chrome.storage.local.set({ lastSync: new Date().toISOString(), lastStatus: 'offline' });
   }
 }
