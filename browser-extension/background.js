@@ -34,9 +34,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 async function syncCookieToBackend(ssid) {
   const { serverUrl = DEFAULT_SERVER_URL } = await chrome.storage.local.get('serverUrl');
+  const baseUrl = serverUrl.replace(/\/+$/, '');
 
   try {
-    const response = await fetch(`${serverUrl}/api/settings/ssid`, {
+    const response = await fetch(`${baseUrl}/api/settings/ssid`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ssid })
@@ -50,7 +51,7 @@ async function syncCookieToBackend(ssid) {
       await chrome.storage.local.set({ lastSync: new Date().toISOString(), lastStatus: 'error' });
     }
   } catch (err) {
-    console.error('[ML Sync] ❌ Network/CORS error:', err.message, '→ URL:', serverUrl);
+    console.error('[ML Sync] ❌ Network/CORS error:', err.message, '→ URL:', baseUrl);
     await chrome.storage.local.set({ lastSync: new Date().toISOString(), lastStatus: 'offline' });
   }
 }
