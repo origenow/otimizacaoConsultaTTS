@@ -146,25 +146,33 @@ export async function ifCatalog(catalogID, xsrf, csrf, d2id, proxyIterator) {
     }
 
     let response = await fetch(assertMeliHost(url), fetchOptions);
-    let data = await response.json();
+    let data;
+    try {
+        data = await response.json();
+    } catch {
+        console.error(`[ifCatalog] Resposta não-JSON para ${catalogID}, status ${response.status}`);
+        return { offers: [] };
+    }
 
-
+    const items = data?.components?.results?.items || [];
 
     const result = {
-        offers: await Promise.all(data.components.results.items.map(async item => {
-            const itemInfo = await ifTraditional(item.id, xsrf, csrf, d2id, proxyIterator);
-
-
-            return {
-                id: item.id,
-                sales_quantity: itemInfo.sales_quantity,
-                startTime: itemInfo.startTime,
-                price: item.price?.value || null
-            };
-        }))
+        offers: (await Promise.all(items.map(async item => {
+            try {
+                const itemInfo = await ifTraditional(item.id, xsrf, csrf, d2id, proxyIterator);
+                return {
+                    id: item.id,
+                    sales_quantity: itemInfo.sales_quantity,
+                    startTime: itemInfo.startTime,
+                    price: item.price?.value || null
+                };
+            } catch (err) {
+                console.error(`[ifCatalog] Item ${item.id} falhou:`, err.message);
+                return null;
+            }
+        }))).filter(Boolean)
     };
 
-    // Armazena no cache
     catalogCache.set(catalogID, result);
 
     return result;
@@ -203,7 +211,7 @@ function inferFreeShipping(data, eventData) {
     return JSON.stringify(data.components ?? {}).toLowerCase().includes("frete grátis");
 }
 
-export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, catalogID = null) {
+export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, _catalogID = null) {
     // Verifica se já existe no cache
     if (itemCache.has(itemID)) {
         return itemCache.get(itemID);
@@ -242,7 +250,13 @@ export async function ifTraditional(itemID, xsrf, csrf, d2id, proxyIterator, cat
     }
 
     let response = await fetch(assertMeliHost(url), fetchOptions);
-    let data = await response.json();
+    let data;
+    try {
+        data = await response.json();
+    } catch {
+        console.error(`[ifTraditional] Resposta não-JSON para ${itemID}, status ${response.status}`);
+        return {};
+    }
 
     const subtitle = data.components?.header?.subtitle || '';
     const salesQuantity = parseSalesQuantity(subtitle);
@@ -409,15 +423,24 @@ export async function searchProducts(query, proxyIterator, accessToken) {
         const itemID = item.item_id;
         const productID = item.product_id;
 
-        // Buscar informações do endpoint de produto (startTime, listingType, itemPrice, categoryId, title)
-        const itemInfo = await ifTraditional(itemID, authHeaders.xsrf, authHeaders.csrf, authHeaders.d2id, proxyIterator, productID);
+        let itemInfo;
+        try {
+            itemInfo = await ifTraditional(itemID, authHeaders.xsrf, authHeaders.csrf, authHeaders.d2id, proxyIterator, productID);
+        } catch (err) {
+            console.error(`[searchProducts] ifTraditional falhou para ${itemID}:`, err.message);
+            return null;
+        }
 
         if (!itemInfo?.id) {
             return null;
         }
 
-        // Buscar offers se houver product_id
-        const offers = productID ? (await ifCatalog(productID, authHeaders.xsrf, authHeaders.csrf, authHeaders.d2id, proxyIterator)).offers : [];
+        let offers = [];
+        try {
+            offers = productID ? (await ifCatalog(productID, authHeaders.xsrf, authHeaders.csrf, authHeaders.d2id, proxyIterator)).offers : [];
+        } catch (err) {
+            console.error(`[searchProducts] ifCatalog falhou para ${productID}:`, err.message);
+        }
 
         // Formatar itemID: se já começar com MLB, remover e adicionar no formato correto MLB-{id}
         const formattedItemID = itemID.startsWith('MLB') ? `MLB-${itemID.substring(3)}` : `MLB-${itemID}`;
