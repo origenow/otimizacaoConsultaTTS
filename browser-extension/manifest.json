@@ -8,6 +8,9 @@
     "https://*.mercadolivre.com.br/*",
     "https://*.mercadolivre.com/*",
     "http://localhost:*/*",
+    "https://*.railway.app/*"
+  ],
+  "optional_host_permissions": [
     "https://*/*"
   ],
   "background": {
