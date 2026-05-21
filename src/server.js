@@ -17,8 +17,20 @@ const app = express();
 const port = 3000;
 
 app.disable('x-powered-by');
+const ALLOWED_ORIGINS = new Set([
+    process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
+]);
+
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (ALLOWED_ORIGINS.has(origin)) return callback(null, true);
+        // Accept requests from browser extensions (Chrome/Firefox)
+        if (origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://')) {
+            return callback(null, true);
+        }
+        callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type']
 }));
@@ -131,7 +143,7 @@ app.post('/api/search', async (req, res) => {
     }
 });
 
-app.get('/*', (req, res) => {
+app.get('/*', (_req, res) => {
     res.sendFile(path.join(clientBuildPath, 'index.html'));
 });
 

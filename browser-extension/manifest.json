@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Origenow ML Cookie Sync",
+  "version": "1.0.0",
+  "description": "Sincroniza automaticamente o cookie SSID do Mercado Livre com o servidor local Origenow.",
+  "permissions": ["cookies", "storage"],
+  "host_permissions": [
+    "https://*.mercadolivre.com.br/*",
+    "https://*.mercadolivre.com/*",
+    "http://localhost:*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Origenow ML Cookie Sync"
+  }
+}
