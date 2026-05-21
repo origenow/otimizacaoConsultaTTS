@@ -38,8 +38,14 @@ async function loadState() {
 saveUrlBtn.addEventListener('click', async () => {
   const url = serverUrlInput.value.trim();
   if (!url) return;
-  await chrome.storage.local.set({ serverUrl: url });
-  showToast('URL salva!');
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('protocolo inválido');
+    await chrome.storage.local.set({ serverUrl: url });
+    showToast('URL salva!');
+  } catch {
+    showToast('URL inválida. Use http:// ou https://', true);
+  }
 });
 
 syncNowBtn.addEventListener('click', async () => {

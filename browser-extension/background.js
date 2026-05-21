@@ -34,7 +34,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 async function syncCookieToBackend(ssid) {
   const { serverUrl = DEFAULT_SERVER_URL } = await chrome.storage.local.get('serverUrl');
-  const baseUrl = serverUrl.replace(/\/+$/, '');
+  const baseUrl = serverUrl.trim().replace(/\/+$/, '');
 
   try {
     const response = await fetch(`${baseUrl}/api/settings/ssid`, {
