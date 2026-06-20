@@ -3,7 +3,7 @@ import https from 'https';
 import { config } from '../../config/index.js';
 import { getAuthHeaders } from './auth.js';
 import { getseller, simulateshippingCost, fetchSaleFees } from './client.js';
-import { calcularMediaVendasPorDia } from '../../utils/calculations.js';
+import { calcularMediaVendasPorDia, calcularMetricasCatalogo } from '../../utils/calculations.js';
 
 
 // Cache para armazenar respostas de requisições anteriores
@@ -527,40 +527,23 @@ export async function searchProducts(query, proxyIterator, accessToken) {
             item.vendas_30_dias = ttsData.vendas_30_dias;
             item.metodo_calculo = 'Individual';
         } else {
-            // Cálculo Média de Catálogo
-            // Aqui pegamos as 3 offers com maior número de vendas (sales_quantity)
-            const melhoresOffers = item.offers
-                .slice()
-                .sort((a, b) => b.sales_quantity - a.sales_quantity)
-                .slice(0, 3);
-
-            // Calcula a média dos tts das 3 offers com mais vendas
-            const somaTts = melhoresOffers.reduce((acc, offer) => acc + (offer.tts || 999), 0);
-            item.tts = Number((somaTts / melhoresOffers.length).toFixed(2));
-
-            // Calcula a média de Velocity das 3 offers com mais vendas
-            const somaVelocity = melhoresOffers.reduce((acc, offer) => acc + (offer.velocity || 0), 0);
-            item.velocity = Number((somaVelocity / melhoresOffers.length).toFixed(1));
-
-            // Calcula vendas projetadas baseadas na Velocity média
-            item.sales_per_month = Number((item.velocity * 30).toFixed(1));
-            item.vendas_1_dia = Number((item.velocity * 1).toFixed(2));
-            item.vendas_7_dias = Number((item.velocity * 7).toFixed(2));
-            item.vendas_15_dias = Number((item.velocity * 15).toFixed(2));
-            item.vendas_30_dias = item.sales_per_month;
-
-            // Calcula a média de TTS de TODAS as offers (apenas informativo)
-            const somaTtsTotal = item.offers.reduce((acc, offer) => acc + (offer.tts || 999), 0);
-            item.catalog_tts_avg = item.offers.length > 0 ? Number((somaTtsTotal / item.offers.length).toFixed(2)) : 0;
-
-            // Para catálogo, não calculamos intervalo_dias
-            item.intervalo_dias = null;
-
-            // Calcula a média das sales_quantity das 3 offers com mais vendas
-            const somaSales = melhoresOffers.reduce((acc, offer) => acc + offer.sales_quantity, 0);
-            item.sales_quantity = Math.round(somaSales / melhoresOffers.length);
-
-            item.metodo_calculo = 'Média de Catálogo';
+            // Cálculo de catálogo: mediana das offers que realmente vendem.
+            // Ignora o sentinela 999 (offer sem dados) — que antes envenenava a média.
+            const cat = calcularMetricasCatalogo(item);
+            item.tts = cat.tts;
+            item.velocity = cat.velocity;
+            item.sales_per_month = cat.sales_per_month;
+            item.intervalo_dias = cat.intervalo_dias;
+            item.vendas_1_dia = cat.vendas_1_dia;
+            item.vendas_7_dias = cat.vendas_7_dias;
+            item.vendas_15_dias = cat.vendas_15_dias;
+            item.vendas_30_dias = cat.vendas_30_dias;
+            item.catalog_tts_avg = cat.catalog_tts_avg;
+            // No fallback "sem vendas" preservamos o sales_quantity individual do item.
+            if (cat.sales_quantity !== undefined) {
+                item.sales_quantity = cat.sales_quantity;
+            }
+            item.metodo_calculo = cat.metodo_calculo;
         }
 
         const shippingCost = shippingCosts.find(shipping => shipping.id == item.id);
