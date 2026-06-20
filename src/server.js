@@ -92,7 +92,11 @@ async function initialize() {
 
     // Renovar token a cada 20 minutos
     setInterval(async () => {
-        accessToken = await getAccessToken();
+        try {
+            accessToken = await getAccessToken();
+        } catch (error) {
+            console.error('❌ Erro ao renovar access_token (mantendo token anterior):', error.message);
+        }
     }, 20 * 60 * 1000);
 }
 

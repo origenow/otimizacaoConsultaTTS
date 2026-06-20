@@ -424,8 +424,9 @@ export async function searchProducts(query, proxyIterator, accessToken) {
         search_logistic_type: item.logistic_type || null
     })).filter(item => item.item_id); // Filtrar itens sem item_id
 
-    // Buscar detalhes de cada item usando o endpoint de produto
-    const itemsProcessed = await Promise.all(response.map(async (item) => {
+    // Buscar detalhes de cada item usando o endpoint de produto.
+    // allSettled: um item que lança (HTML/captcha/429) não derruba a busca inteira.
+    const settledItems = await Promise.allSettled(response.map(async (item) => {
         const itemID = item.item_id;
         const productID = item.product_id;
 
@@ -466,7 +467,6 @@ export async function searchProducts(query, proxyIterator, accessToken) {
             power_seller_status: itemInfo.power_seller_status,
             free_shipping: itemInfo.free_shipping,
             quantity: itemInfo.quantity,
-            quantity: itemInfo.quantity,
             thumbnail: itemInfo.thumbnail,
             marca: itemInfo.marca || null,
             numeroPeca: itemInfo.numeroPeca || null,
@@ -474,6 +474,13 @@ export async function searchProducts(query, proxyIterator, accessToken) {
             reviews: itemInfo.reviews
         };
     }));
+
+    // Itens que lançaram viram null; os bem-sucedidos preservam o valor.
+    const itemsProcessed = settledItems.map((r) => {
+        if (r.status === 'fulfilled') return r.value;
+        console.error('⚠️ Item ignorado por erro no processamento:', r.reason?.message || r.reason);
+        return null;
+    });
 
     // Remover itens nulos ou sem dados essenciais (titulo ou preço)
     // Filtro mais robusto: ID deve começar com MLB e Preço deve ser numérico

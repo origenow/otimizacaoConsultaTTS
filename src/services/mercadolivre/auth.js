@@ -19,10 +19,12 @@ export async function getAccessToken() {
         redirect: "follow"
     };
 
-    return fetch("https://api.mercadolibre.com/oauth/token", requestOptions)
-        .then((response) => response.json())
-        .then((result) => result.access_token)
-        .catch((error) => console.error(error));
+    const response = await fetch("https://api.mercadolibre.com/oauth/token", requestOptions);
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result || !result.access_token) {
+        throw new Error(`Falha ao obter access_token do ML (HTTP ${response.status}): ${JSON.stringify(result)}`);
+    }
+    return result.access_token;
 }
 
 export async function getAuthHeaders(proxyIterator) {
